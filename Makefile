@@ -10,9 +10,9 @@ CXXFLAGS := -Wall -Wextra -std=c++17 -mconsole
 SRC_DIR := src
 BUILD_DIR := build
 BIN_DIR := bin
-INCLUDE_DIRS := include x86_64-w64-mingw32/include
-LIB_DIRS := x86_64-w64-mingw32/lib
-LIBS := SDL3
+INCLUDE_DIRS := include
+LIB_DIRS := lib
+LIBS := SDL3 glew32 opengl32 glu32
 
 # ------------------------
 # OS Detection
@@ -79,10 +79,10 @@ ifeq ($(OS),Windows_NT)
 	@if exist "$(BUILD_DIR)" rmdir /S /Q "$(BUILD_DIR)"
 	@if exist "$(BIN_DIR)" ( \
 		for %%f in ("$(BIN_DIR)\*") do ( \
-			if /I not "%%~nxf"=="SDL3.dll" del /Q "%%f" \
+			if /I not "%%~nxf"=="SDL3.dll" if /I not "%%~nxf"=="glew32.dll" del /Q "%%f" \
 		) \
 	)
 else
 	rm -rf "$(BUILD_DIR)"
-	find "$(BIN_DIR)" -type f ! -name "SDL3.dll" -delete
+	find "$(BIN_DIR)" -type f ! -name "SDL3.dll" ! -name "glew32.dll" -delete
 endif
