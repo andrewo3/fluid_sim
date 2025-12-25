@@ -12,7 +12,7 @@ BUILD_DIR := build
 BIN_DIR := bin
 INCLUDE_DIRS := include x86_64-w64-mingw32/include
 LIB_DIRS := x86_64-w64-mingw32/lib
-LIBS := SDL3   # SDL3 only
+LIBS := SDL3
 
 # ------------------------
 # OS Detection
@@ -75,5 +75,14 @@ run: build
 
 # Clean build files (cross-platform)
 clean:
-	$(RMDIR) "$(BUILD_DIR)" || true
-	$(RMDIR) "$(BIN_DIR)" || true
+ifeq ($(OS),Windows_NT)
+	@if exist "$(BUILD_DIR)" rmdir /S /Q "$(BUILD_DIR)"
+	@if exist "$(BIN_DIR)" ( \
+		for %%f in ("$(BIN_DIR)\*") do ( \
+			if /I not "%%~nxf"=="SDL3.dll" del /Q "%%f" \
+		) \
+	)
+else
+	rm -rf "$(BUILD_DIR)"
+	find "$(BIN_DIR)" -type f ! -name "SDL3.dll" -delete
+endif
