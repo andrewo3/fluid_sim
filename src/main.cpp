@@ -6,7 +6,16 @@
 #include <gl/GLU.h>
 #include <fstream>
 #include "shader.hpp"
+#include <windows.h>
 
+
+void APIENTRY debugCallback(
+GLenum source, GLenum type, GLuint id,
+    GLenum severity, GLsizei length,
+    const GLchar* message, const void* userParam)
+{
+    printf("GL DEBUG: %s\n", message);
+}
 
 /* Constants */
 //Screen dimension constants
@@ -30,6 +39,7 @@ ShaderProgram gProgram;
 GLint gVertexPos2DLocation = -1;
 GLuint gVBO = 0;
 GLuint gIBO = 0;
+GLuint gVAO = 0;
 bool gRenderQuad = true;
 
 //Create shaders
@@ -69,13 +79,13 @@ void printProgramLog( GLuint program )
 }
 
 bool initGL() {
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(debugCallback, NULL);
     //Success flag
     bool success = true;
-
-    printf("hi0\n"); 
+    
     //Generate program
     gProgram.init();
-    printf("hi.5\n"); 
 
     //initialize shaders
     if (!vertexShader.init("src/vertex.glsl")) {
@@ -83,27 +93,23 @@ bool initGL() {
         printShaderLog(vertexShader.id);
         return false;
     }
-    printf("hi.75\n"); 
 
     if (!fragmentShader.init("src/frag.glsl")) {
         printf("Unable to compile fragment shader %d!\n", fragmentShader.id);
         printShaderLog(fragmentShader.id);
         return false;
     }
-    printf("hi1\n"); 
     //Attach vertex shader to program
     gProgram.attachShader(&vertexShader);
 
     //Attach fragment shader to program
     gProgram.attachShader(&fragmentShader);
-    printf("hi2\n"); 
     //Link program
     if(!gProgram.link()) {
         printf("Error linking program %d!\n", gProgram.id);
         printProgramLog(gProgram.id);
         return false;
     }
-    printf("hi3\n"); 
     //Get vertex attribute location
     gVertexPos2DLocation = glGetAttribLocation( gProgram.id, "LVertexPos2D" );
     if( gVertexPos2DLocation == -1 )
@@ -112,7 +118,6 @@ bool initGL() {
         return false;
     }else
     {
-        printf("hi4\n"); 
         //Initialize clear color
         glClearColor( 0.f, 0.f, 0.f, 1.f );
 
@@ -126,7 +131,11 @@ bool initGL() {
         };
 
         //IBO data
-        GLuint indexData[] = { 0, 1, 2, 3 };
+        GLuint indexData[] = { 0, 1, 2, 2, 3, 0 };
+
+        //create VAO
+        glGenVertexArrays(1, &gVAO);
+        glBindVertexArray(gVAO);
 
         //Create VBO
         glGenBuffers( 1, &gVBO );
@@ -136,7 +145,7 @@ bool initGL() {
         //Create IBO
         glGenBuffers( 1, &gIBO );
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
-        glBufferData( GL_ELEMENT_ARRAY_BUFFER, 4 * sizeof(GLuint), indexData, GL_STATIC_DRAW );
+        glBufferData( GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLuint), indexData, GL_STATIC_DRAW );
     }
     return success;
 }
@@ -163,9 +172,9 @@ bool init() {
             gScreenSurface = SDL_GetWindowSurface(gWindow);
         }
 
-        //Use OpenGL 3.1 core
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+        //Use OpenGL 4.3 core
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
         //Create context
@@ -208,16 +217,18 @@ void render()
         //Bind program
         glUseProgram(gProgram.id);
 
+        //Enable VAO
+        glBindVertexArray(gVAO);
+
         //Enable vertex position
         glEnableVertexAttribArray(gVertexPos2DLocation);
 
         //Set vertex data
         glBindBuffer( GL_ARRAY_BUFFER, gVBO );
         glVertexAttribPointer( gVertexPos2DLocation, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), NULL );
-
         //Set index data and render
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
-        glDrawElements( GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, NULL );
+        glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL );
 
         //Disable vertex position
         glDisableVertexAttribArray( gVertexPos2DLocation );
