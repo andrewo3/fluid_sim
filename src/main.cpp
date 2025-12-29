@@ -6,6 +6,7 @@
 #include <gl/GLU.h>
 #include <fstream>
 #include "shader.hpp"
+#include "sim.hpp"
 #include <windows.h>
 
 
@@ -45,6 +46,10 @@ bool gRenderQuad = true;
 //Create shaders
 Shader vertexShader(GL_VERTEX_SHADER);
 Shader fragmentShader(GL_FRAGMENT_SHADER);
+
+//Fluid sim object
+const int G_WIDTH = 80;
+const int G_HEIGHT = 80;
 
 void printProgramLog( GLuint program )
 {
@@ -265,6 +270,9 @@ int main(int argc, char** argv) {
     {
         //The quit flag
         bool quit = false;
+
+        //fluid sim creation
+        Fluid fSim(G_WIDTH,G_HEIGHT);
 
         //The event data
         SDL_Event e;
