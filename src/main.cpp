@@ -50,6 +50,7 @@ Shader fragmentShader(GL_FRAGMENT_SHADER);
 //Fluid sim object
 const int G_WIDTH = 80;
 const int G_HEIGHT = 80;
+Fluid* fSim;
 
 bool initGL() {
     //glEnable(GL_DEBUG_OUTPUT);
@@ -59,7 +60,6 @@ bool initGL() {
     
     //Generate program
     gProgram.init();
-
     //initialize shaders
     if (!vertexShader.init("src/vertex.glsl")) {
         printf("Unable to compile vertex shader %d!\n", vertexShader.id);
@@ -97,10 +97,10 @@ bool initGL() {
         //VBO data
         GLfloat vertexData[] =
         {
-            -0.5f, -0.5f,
-                0.5f, -0.5f,
-                0.5f,  0.5f,
-            -0.5f,  0.5f
+            -1.0f, -1.0f,0.0f,0.0f,
+                1.0f, -1.0f,1.0f,0.0f,
+                1.0f,  1.0f,1.0f,1.0f,
+            -1.0f,  1.0f, 0.0f, 1.0f
         };
 
         //IBO data
@@ -113,12 +113,19 @@ bool initGL() {
         //Create VBO
         glGenBuffers( 1, &gVBO );
         glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-        glBufferData( GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), vertexData, GL_STATIC_DRAW );
+        glBufferData( GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW );
 
         //Create IBO
         glGenBuffers( 1, &gIBO );
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
         glBufferData( GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLuint), indexData, GL_STATIC_DRAW );
+
+        //vertex attributes
+        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)0);
+        glEnableVertexAttribArray(0);
+        //tex coords
+        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)(sizeof(GLfloat)*2));
+        glEnableVertexAttribArray(1);
     }
     return success;
 }
@@ -193,12 +200,18 @@ void render()
         //Enable VAO
         glBindVertexArray(gVAO);
 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D,fSim->V2ID);
+
         //Enable vertex position
         glEnableVertexAttribArray(gVertexPos2DLocation);
 
         //Set vertex data
         glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-        glVertexAttribPointer( gVertexPos2DLocation, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), NULL );
+        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)(sizeof(GLfloat)*2));
+        glEnableVertexAttribArray(1);
         //Set index data and render
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
         glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL );
@@ -238,10 +251,7 @@ int main(int argc, char** argv) {
     {
         //The quit flag
         bool quit = false;
-
-        //fluid sim creation
-        Fluid fSim(G_WIDTH,G_HEIGHT);
-
+        fSim = new Fluid(G_WIDTH,G_HEIGHT);
         //The event data
         SDL_Event e;
         SDL_zero(e);
@@ -256,11 +266,13 @@ int main(int argc, char** argv) {
                     quit = true;
                 }
             }
+            fSim->simStep();
             //Update the surface
             render();
             SDL_GL_SwapWindow(gWindow);
         }
     }
     printf("end\n");
+    delete fSim;
     return 0;
 }

@@ -31,6 +31,9 @@ class Fluid {
         GLuint densIDs[num_dens_textures];
         GLuint dens2IDs[num_dens_textures];
 
+        GLuint* dens_in;
+        GLuint* dens_out;
+
         Shader shader = Shader(GL_COMPUTE_SHADER);
         ShaderProgram program;
 
