@@ -51,40 +51,8 @@ Shader fragmentShader(GL_FRAGMENT_SHADER);
 const int G_WIDTH = 80;
 const int G_HEIGHT = 80;
 
-void printProgramLog( GLuint program )
-{
-    //Make sure name is shader
-    if( glIsProgram( program ) )
-    {
-        //Program log length
-        int infoLogLength = 0;
-        int maxLength = infoLogLength;
-        
-        //Get info string length
-        glGetProgramiv( program, GL_INFO_LOG_LENGTH, &maxLength );
-        
-        //Allocate string
-        char* infoLog = new char[ maxLength ];
-        
-        //Get info log
-        glGetProgramInfoLog( program, maxLength, &infoLogLength, infoLog );
-        if( infoLogLength > 0 )
-        {
-            //Print Log
-            printf( "%s\n", infoLog );
-        }
-        
-        //Deallocate string
-        delete[] infoLog;
-    }
-    else
-    {
-        printf( "Name %d is not a program\n", program );
-    }
-}
-
 bool initGL() {
-    glEnable(GL_DEBUG_OUTPUT);
+    //glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(debugCallback, NULL);
     //Success flag
     bool success = true;
@@ -284,6 +252,7 @@ int main(int argc, char** argv) {
                 //If event is quit type
                 if(e.type == SDL_EVENT_QUIT) {
                     //End the main loop
+                    printf("Ending...\n");
                     quit = true;
                 }
             }
@@ -292,5 +261,6 @@ int main(int argc, char** argv) {
             SDL_GL_SwapWindow(gWindow);
         }
     }
+    printf("end\n");
     return 0;
 }

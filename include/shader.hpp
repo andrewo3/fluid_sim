@@ -27,5 +27,6 @@ class ShaderProgram {
 };
 
 void printShaderLog(GLuint shader);
+void printProgramLog(GLuint program);
 
 #endif
