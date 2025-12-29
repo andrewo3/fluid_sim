@@ -25,8 +25,9 @@ void main() {
     vec2 uv = vec2(id) / vec2(dims);
 
     // Output gradient: R = x, G = y
-    float n = rand(uv);
-    vec4 color = vec4(n,n,0.0,1.0);
+    float n = rand(uv+texture(vIn,uv).xy);
+    float n2 = rand(uv-texture(vIn,uv).xy);
+    vec4 color = vec4(n,n2,0.0,1.0);
     imageStore(vOut, id, color);
 
     // base pixel color for image
