@@ -31,11 +31,14 @@ void Fluid::initDensTex(GLuint* id_arr) {
 
 GLuint Fluid::initVelTex() {
     float init_vel[(const int)(grid_w*grid_h*4)];
+    float s = 1;
     for (int i = 0; i < grid_w*grid_h*4; i++) {
-        if (i%4 == 1) {
-            init_vel[i] = 1.0f;
-        } else {
-            init_vel[i] = 0.0f;
+        float x = (((i/4) % grid_w)-(grid_w/2))/(grid_w/2.0);
+        float y = ((grid_h/2)-((i/4) / grid_w))/(grid_h/2.0);
+        if (i%4 == 0) {
+            init_vel[i] = y*s;
+        } else if (i%4 == 1) {
+            init_vel[i] = x*s;
         }
     }
     GLuint id;
@@ -212,6 +215,9 @@ void Fluid::simStep(SDL_Window* window) {
     dt = (currentTime - lastTime)/1000.0;
     lastTime = currentTime;
 
+
+    //DENSITY WORK
+    //--------------------------------------------
     //run source step
     sourceStep(window);
 
@@ -234,6 +240,9 @@ void Fluid::simStep(SDL_Window* window) {
         //update in checkerboard pattern
         advectStep(dens_in[d / 4], dens_out[d / 4]); // red
     }
+
+    //VELOCITY WORK
+    //----------------------------------------------------
     /*
     //swap in and out velocities
     GLuint tmp = V2ID;
