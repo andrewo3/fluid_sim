@@ -48,8 +48,8 @@ Shader vertexShader(GL_VERTEX_SHADER);
 Shader fragmentShader(GL_FRAGMENT_SHADER);
 
 //Fluid sim object
-const int G_WIDTH = 80;
-const int G_HEIGHT = 80;
+const int G_WIDTH = 200;
+const int G_HEIGHT = 200;
 Fluid* fSim;
 
 bool initGL() {
@@ -239,6 +239,10 @@ void close()
     SDL_Quit();
 }
 
+inline int positive_modulo(int i, int n) {
+    return (i % n + n) % n;
+}
+
 int main(int argc, char** argv) {
     //Final exit code
     int exitCode = 0;
@@ -251,7 +255,7 @@ int main(int argc, char** argv) {
     {
         //The quit flag
         bool quit = false;
-        fSim = new Fluid(G_WIDTH,G_HEIGHT,1.0);
+        fSim = new Fluid(G_WIDTH,G_HEIGHT,0.001,0.01);
         //The event data
         SDL_Event e;
         SDL_zero(e);
@@ -264,6 +268,10 @@ int main(int argc, char** argv) {
                     //End the main loop
                     printf("Ending...\n");
                     quit = true;
+                } else if (e.type == SDL_EVENT_MOUSE_WHEEL) {
+                    fSim->mouse_density += e.wheel.integer_y;
+                    fSim->mouse_density = positive_modulo(fSim->mouse_density,fSim->densities);
+                    //printf("Mouse density: %i\n",fSim->mouse_density);
                 }
             }
             fSim->simStep(gWindow);

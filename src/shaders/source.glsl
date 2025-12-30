@@ -10,7 +10,7 @@ uniform vec2 mouse_vel;
 uniform ivec3 mouse_buttons;
 uniform float dt;
 
-float source_strength = 20.0;
+uniform float source_strength;
 
 float getComponent(vec4 v, int i) {
     return (i == 0) ? v.x :
@@ -29,7 +29,11 @@ void setComponent(inout vec4 v, int i, float value) {
 void addSourceFromMouse(ivec2 id) {
     vec4 outv = vec4(0.0,0.0,0.0,0.0);
     vec4 current = texelFetch(inputField,id,0);
-    setComponent(outv,component,dt*source_strength);
+    if (component != -1) {
+        setComponent(outv,component,dt*source_strength);
+    } else {
+        outv = vec4(dt*source_strength);
+    }
     imageStore(outputField,id,current + outv);
 }
 

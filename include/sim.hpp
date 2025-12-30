@@ -18,7 +18,7 @@ typedef struct {
 
 class Fluid {
     public:
-        Fluid(int gridw, int gridh, float diff_rate);
+        Fluid(int gridw, int gridh, float diff_rate, float visc);
         ~Fluid();
         bool addDensity(color_t dens_color);
         void initDensTex(GLuint* id_arr);
@@ -26,7 +26,7 @@ class Fluid {
 
         void simStep(SDL_Window* window);
         void diffuseStep(int redblack, float rate, GLuint input, GLuint output);
-        void sourceStep(SDL_Window* window);
+        void sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, GLuint input, GLuint output);
         void advectStep(GLuint input, GLuint output);
 
         static const int num_dens_textures = (MAX_DENSITIES + 3) / 4;
@@ -48,6 +48,15 @@ class Fluid {
         Shader advectShader = Shader(GL_COMPUTE_SHADER);
         ShaderProgram advectProgram;
 
+        Shader project1Shader = Shader(GL_COMPUTE_SHADER);
+        ShaderProgram project1Program;
+
+        Shader project2Shader = Shader(GL_COMPUTE_SHADER);
+        ShaderProgram project2Program;
+
+        Shader project3Shader = Shader(GL_COMPUTE_SHADER);
+        ShaderProgram project3Program;
+
         int grid_w;
         int grid_h;
 
@@ -55,9 +64,12 @@ class Fluid {
         unsigned long lastTime = 0;
 
         float diffRate = 0.0;
+        float viscosity = 0.0;
 
         float dt = 0.0;
         int densities = 0;
+
+        int mouse_density = 0;
         
         color_t colors[MAX_DENSITIES];
 };

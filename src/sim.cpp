@@ -30,8 +30,8 @@ void Fluid::initDensTex(GLuint* id_arr) {
 }
 
 GLuint Fluid::initVelTex() {
-    float init_vel[(const int)(grid_w*grid_h*4)];
-    float s = 1;
+    float init_vel[(const int)(grid_w*grid_h*4)] = {0.0};
+    /*float s = 1;
     for (int i = 0; i < grid_w*grid_h*4; i++) {
         float x = (((i/4) % grid_w)-(grid_w/2))/(grid_w/2.0);
         float y = ((grid_h/2)-((i/4) / grid_w))/(grid_h/2.0);
@@ -40,7 +40,7 @@ GLuint Fluid::initVelTex() {
         } else if (i%4 == 1) {
             init_vel[i] = x*s;
         }
-    }
+    }*/
     GLuint id;
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
@@ -54,13 +54,16 @@ GLuint Fluid::initVelTex() {
     return id;
 }
 
-Fluid::Fluid(int gridw, int gridh, float diff_rate) {
+Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
     //set grid size
     grid_w = gridw;
     grid_h = gridh;
 
     //set diffusion rate
     diffRate = diff_rate;
+
+    //set viscosity
+    viscosity = visc;
     
     //in vel texture
     VID = initVelTex();
@@ -78,6 +81,15 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate) {
     if (!addDensity((color_t){.r = 255, .g = 0, .b = 0})) {
         printf("Failed to add new color to fluid.\n");
     }
+
+    if (!addDensity((color_t){.r = 255, .g = 0, .b = 0})) {
+        printf("Failed to add new color to fluid.\n");
+    }
+
+    if (!addDensity((color_t){.r = 255, .g = 0, .b = 0})) {
+        printf("Failed to add new color to fluid.\n");
+    }
+
 
     //create shaders and programs
     sourceShader.init("src/shaders/source.glsl");
@@ -103,6 +115,30 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate) {
         printf("Failed to link advect sim program.\n");
         printProgramLog(advectProgram.id);
     }
+
+    project1Shader.init("src/shaders/project1.glsl");
+    project1Program.init();
+    project1Program.attachShader(&project1Shader);
+    if (!project1Program.link()) {
+        printf("Failed to link project1 sim program.\n");
+        printProgramLog(project1Program.id);
+    }
+
+    project2Shader.init("src/shaders/project2.glsl");
+    project2Program.init();
+    project2Program.attachShader(&project2Shader);
+    if (!project2Program.link()) {
+        printf("Failed to link project2 sim program.\n");
+        printProgramLog(project2Program.id);
+    }
+
+    project3Shader.init("src/shaders/project3.glsl");
+    project3Program.init();
+    project3Program.attachShader(&project3Shader);
+    if (!project3Program.link()) {
+        printf("Failed to link project3 sim program.\n");
+        printProgramLog(project3Program.id);
+    }
 }
 
 bool Fluid::addDensity(color_t color) {
@@ -114,61 +150,33 @@ bool Fluid::addDensity(color_t color) {
     return true;
 }
 
-void Fluid::sourceStep(SDL_Window* window) {
-    //get mouse pos, vel, and buttons
-    float mouse_pos[2];
-    float mouse_vel[2];
-    SDL_MouseButtonFlags buttons = SDL_GetMouseState(mouse_pos,mouse_pos+1);
-    SDL_MouseButtonFlags buttons2 = SDL_GetRelativeMouseState(mouse_vel,mouse_vel+1);
-
-    int window_size[2];
-    SDL_GetWindowSize(window,window_size,window_size+1);
-
-    int mouse_buttons[3] = {
-        buttons & SDL_BUTTON_LMASK,
-        buttons & SDL_BUTTON_MMASK,
-        buttons & SDL_BUTTON_RMASK
-    };
-
-    int mouse_pos_i[2];
-
-    mouse_pos_i[0] = (int)(mouse_pos[0] / window_size[0] * grid_w);
-    mouse_pos_i[1] = (int)(grid_h - mouse_pos[1] / window_size[1] * grid_h);
-
-    mouse_vel[0] = mouse_vel[0] / window_size[0] * grid_w;
-    mouse_vel[1] = mouse_vel[1] / window_size[1] * grid_h;
-
-    int mouse_density = 0; // indicate which density to use
-
+void Fluid::sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, GLuint input, GLuint output) {
     //use program
     glUseProgram(sourceProgram.id);
 
     GLint componentLoc = glGetUniformLocation(sourceProgram.id, "component");
-    glUniform1i(componentLoc,mouse_density % 4);
+    glUniform1i(componentLoc,component);
 
     //add mouse data as uniforms
     GLint posLoc = glGetUniformLocation(sourceProgram.id, "mouse_pos");
     GLint velLoc = glGetUniformLocation(sourceProgram.id, "mouse_vel");
     GLint buttonsLoc = glGetUniformLocation(sourceProgram.id, "mouse_buttons");
     GLint dtLoc = glGetUniformLocation(sourceProgram.id, "dt");
+    GLint srcLoc = glGetUniformLocation(sourceProgram.id, "source_strength");
     glUniform2iv(posLoc,1,mouse_pos_i);
     glUniform2fv(velLoc,1,mouse_vel);
     glUniform3iv(buttonsLoc,1,mouse_buttons);
     glUniform1f(dtLoc,dt);
+    glUniform1f(srcLoc,strength);
 
     //input textures setup
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,dens_in[mouse_density/4]);
+    glBindTexture(GL_TEXTURE_2D,input);
 
-    glBindImageTexture(1, dens_out[mouse_density/4], 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-    //swap in and out densities
-    GLuint* tmp2 = dens_out;
-    dens_out = dens_in;
-    dens_in = tmp2;
 }
 
 void Fluid::diffuseStep(int redblack, float rate, GLuint input, GLuint output) {
@@ -210,6 +218,31 @@ void Fluid::advectStep(GLuint input, GLuint output) {
 }
 
 void Fluid::simStep(SDL_Window* window) {
+    float SRC_STRENGTH = 2000.0;
+    //get mouse pos, vel, and buttons
+    float mouse_pos[2];
+    float mouse_vel[2];
+    SDL_MouseButtonFlags buttons = SDL_GetMouseState(mouse_pos,mouse_pos+1);
+    SDL_MouseButtonFlags buttons2 = SDL_GetRelativeMouseState(mouse_vel,mouse_vel+1);
+
+    int window_size[2];
+    SDL_GetWindowSize(window,window_size,window_size+1);
+
+    int mouse_buttons[3] = {
+        buttons & SDL_BUTTON_LMASK,
+        buttons & SDL_BUTTON_MMASK,
+        buttons & SDL_BUTTON_RMASK
+    };
+
+    int mouse_pos_i[2];
+
+    mouse_pos_i[0] = (int)(mouse_pos[0] / window_size[0] * grid_w);
+    mouse_pos_i[1] = (int)(grid_h - mouse_pos[1] / window_size[1] * grid_h);
+
+    mouse_vel[0] = mouse_vel[0] / window_size[0] * grid_w;
+    mouse_vel[1] = mouse_vel[1] / window_size[1] * grid_h;
+
+
     //calculate dt
     currentTime = SDL_GetTicks();
     dt = (currentTime - lastTime)/1000.0;
@@ -219,9 +252,21 @@ void Fluid::simStep(SDL_Window* window) {
     //DENSITY WORK
     //--------------------------------------------
     //run source step
-    sourceStep(window);
+    sourceStep(
+        mouse_pos_i,
+        mouse_vel,
+        mouse_buttons,
+        mouse_density % 4, 
+        SRC_STRENGTH,
+        dens_in[mouse_density/4],
+        dens_out[mouse_density/4]
+    );
 
-    float diffRate = 0.001;
+    //swap in and out densities
+    GLuint* tmp2 = dens_out;
+    dens_out = dens_in;
+    dens_in = tmp2;
+
     for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
         //run diffuse step for every color
         for (int d = 0; d < (densities + 3) / 4; d++) {
@@ -232,7 +277,7 @@ void Fluid::simStep(SDL_Window* window) {
     }
 
     //swap in and out densities
-    GLuint* tmp2 = dens_out;
+    tmp2 = dens_out;
     dens_out = dens_in;
     dens_in = tmp2;
 
@@ -243,6 +288,27 @@ void Fluid::simStep(SDL_Window* window) {
 
     //VELOCITY WORK
     //----------------------------------------------------
+    sourceStep(
+        mouse_pos_i,
+        mouse_vel,
+        mouse_buttons,
+        -1, 
+        5.0,
+        VID,
+        V2ID
+    );
+    GLuint tmp = V2ID;
+    V2ID = VID;
+    VID = tmp;
+
+    for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
+        //run diffuse step for velocity
+        //update in checkerboard pattern
+        diffuseStep(0, viscosity, VID, V2ID); // red
+        diffuseStep(1, viscosity, VID, V2ID); // black
+    }
+
+    
     /*
     //swap in and out velocities
     GLuint tmp = V2ID;
