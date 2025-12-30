@@ -61,13 +61,13 @@ bool initGL() {
     //Generate program
     gProgram.init();
     //initialize shaders
-    if (!vertexShader.init("src/vertex.glsl")) {
+    if (!vertexShader.init("src/shaders/vertex.glsl")) {
         printf("Unable to compile vertex shader %d!\n", vertexShader.id);
         printShaderLog(vertexShader.id);
         return false;
     }
 
-    if (!fragmentShader.init("src/frag.glsl")) {
+    if (!fragmentShader.init("src/shaders/frag.glsl")) {
         printf("Unable to compile fragment shader %d!\n", fragmentShader.id);
         printShaderLog(fragmentShader.id);
         return false;
@@ -201,7 +201,7 @@ void render()
         glBindVertexArray(gVAO);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D,fSim->V2ID);
+        glBindTexture(GL_TEXTURE_2D,fSim->dens_out[0]);
 
         //Enable vertex position
         glEnableVertexAttribArray(gVertexPos2DLocation);
@@ -251,7 +251,7 @@ int main(int argc, char** argv) {
     {
         //The quit flag
         bool quit = false;
-        fSim = new Fluid(G_WIDTH,G_HEIGHT);
+        fSim = new Fluid(G_WIDTH,G_HEIGHT,1.0);
         //The event data
         SDL_Event e;
         SDL_zero(e);
@@ -266,7 +266,7 @@ int main(int argc, char** argv) {
                     quit = true;
                 }
             }
-            fSim->simStep();
+            fSim->simStep(gWindow);
             //Update the surface
             render();
             SDL_GL_SwapWindow(gWindow);
