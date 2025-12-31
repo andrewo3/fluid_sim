@@ -2,3 +2,5 @@
 bin
 build
 SDL3-devel-3.3.6-mingw
+include/SDL3
+include/GL
