@@ -1,6 +1,6 @@
 #version 430
 
-layout(local_size_x = 1, local_size_y = 1) in;
+layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0) uniform sampler2D inputField;
 layout(rgba32f, binding = 1) uniform image2D outputField;
 uniform int component;
@@ -9,6 +9,7 @@ uniform ivec2 mouse_pos;
 uniform vec2 mouse_vel;
 uniform ivec3 mouse_buttons;
 uniform float dt;
+uniform int brush_size;
 
 uniform float source_strength;
 
@@ -37,6 +38,21 @@ void addSourceFromMouse(ivec2 id) {
     imageStore(outputField,id,current + outv);
 }
 
+void addSinkFromMouse(ivec2 id,ivec2 sink_center) {
+    vec4 outv = vec4(0.0,0.0,0.0,0.0);
+    vec4 current = texelFetch(inputField,id,0);
+    if (component != -1) {
+        if (id == sink_center) {
+            setComponent(outv,component,0);
+        }
+    } else {
+        float d = length(id-sink_center);
+        vec2 pull = source_strength*source_strength*vec2(id-sink_center)/(d*d+0.00001);
+        outv = vec4(-pull,0.0,0.0);
+    }
+    imageStore(outputField,id,current + outv);
+}
+
 void addForceFromMouse(ivec2 id) {
     vec4 outv = vec4(0.0,0.0,0.0,0.0);
     vec4 current = texelFetch(inputField,id,0);
@@ -51,9 +67,11 @@ void main() {
     ivec2 dims = imageSize(outputField);
 
     //right click cell
-    if (id == mouse_pos && mouse_buttons.z != 0) {
+    if (length(id - mouse_pos) <= brush_size && mouse_buttons.z != 0) {
         addSourceFromMouse(id);
-    } else if (id == mouse_pos && mouse_buttons.x != 0) {
+    } else if (length(id - mouse_pos) <= brush_size && mouse_buttons.x != 0) {
         addForceFromMouse(id);
+    } else if (length(id - mouse_pos) <= brush_size && mouse_buttons.y != 0) {
+        addSinkFromMouse(id,mouse_pos);
     }
 }

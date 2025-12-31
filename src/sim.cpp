@@ -30,34 +30,7 @@ void Fluid::initDensTex(GLuint* id_arr) {
 }
 
 GLuint Fluid::initVelTex() {
-    float init_vel[grid_w * grid_h * 4];
-    float scale = 1.0f;
-
-    for (int y = 0; y < grid_h; y++) {
-        for (int x = 0; x < grid_w; x++) {
-            int idx = 4 * (y * grid_w + x);
-            
-            // normalize coordinates to [-1, 1]
-            float nx = (float(x) - float(grid_w)/2) / (float(grid_w)/2);
-            float ny = (float(y) - float(grid_h)/2) / (float(grid_h)/2);
-            
-            // vortex velocity
-            init_vel[idx + 0] = -ny * scale; // u
-            init_vel[idx + 1] =  nx * scale; // v
-            init_vel[idx + 2] = 0.0f;        // z
-            init_vel[idx + 3] = 0.0f;        // w
-        }
-    }
-    /*
-    for (int i = 0; i < grid_w*grid_h*4; i++) {
-        float x = (((i/4) % grid_w)-(grid_w/2))/(grid_w/2.0);
-        float y = ((grid_h/2)-((i/4) / grid_w))/(grid_h/2.0);
-        if (i%4 == 0) {
-            init_vel[i] = y*s;
-        } else if (i%4 == 1) {
-            init_vel[i] = x*s;
-        }
-    }*/
+    float init_vel[grid_w * grid_h * 4] = {0.0};
     GLuint id;
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
@@ -167,7 +140,7 @@ bool Fluid::addDensity(color_t color) {
     return true;
 }
 
-void Fluid::sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, GLuint input, GLuint output) {
+void Fluid::sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, int brush_size, GLuint input, GLuint output) {
     //use program
     glUseProgram(sourceProgram.id);
 
@@ -180,11 +153,13 @@ void Fluid::sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, i
     GLint buttonsLoc = glGetUniformLocation(sourceProgram.id, "mouse_buttons");
     GLint dtLoc = glGetUniformLocation(sourceProgram.id, "dt");
     GLint srcLoc = glGetUniformLocation(sourceProgram.id, "source_strength");
+    GLint brushLoc = glGetUniformLocation(sourceProgram.id, "brush_size");
     glUniform2iv(posLoc,1,mouse_pos_i);
     glUniform2fv(velLoc,1,mouse_vel);
     glUniform3iv(buttonsLoc,1,mouse_buttons);
     glUniform1f(dtLoc,dt);
     glUniform1f(srcLoc,strength);
+    glUniform1i(brushLoc,brush_size);
 
     //input textures setup
     glActiveTexture(GL_TEXTURE0);
@@ -192,7 +167,7 @@ void Fluid::sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, i
 
     glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
+    glDispatchCompute((GLuint)grid_w/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
@@ -211,7 +186,7 @@ void Fluid::diffuseStep(int redblack, float rate, GLuint input, GLuint output) {
 
     glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    glDispatchCompute((GLuint)(grid_w/2 + (grid_w%2)),(GLuint)grid_h,1);
+    glDispatchCompute((GLuint)(grid_w/2 + (grid_w%2))/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
 }
@@ -230,7 +205,7 @@ void Fluid::advectStep(GLuint input, GLuint output, GLuint vel) {
 
     glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
+    glDispatchCompute((GLuint)grid_w/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
@@ -243,7 +218,7 @@ void Fluid::project1Step(GLuint input, GLuint scratch) {
 
     glBindImageTexture(1, scratch, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     
-    glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
+    glDispatchCompute((GLuint)grid_w/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
@@ -254,7 +229,7 @@ void Fluid::project2Step(int redblack, GLuint scratch) {
     GLint redblackLoc = glGetUniformLocation(project2Program.id, "redblack");
     glUniform1i(redblackLoc, redblack);
 
-    glDispatchCompute((GLuint)(grid_w/2 + (grid_w%2)),(GLuint)grid_h,1);
+    glDispatchCompute((GLuint)(grid_w/2 + (grid_w%2))/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
@@ -266,7 +241,7 @@ void Fluid::project3Step(GLuint scratch, GLuint output) {
 
     glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
+    glDispatchCompute((GLuint)grid_w/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
@@ -277,6 +252,7 @@ void Fluid::boundStep(int type, GLuint inOut) {
 void Fluid::simStep(SDL_Window* window, float dt_) {
     dt = dt_;
     float SRC_STRENGTH = 2000.0;
+    float BRUSH_SIZE = 1;
     //get mouse pos, vel, and buttons
     float mouse_pos[2];
     float mouse_vel[2];
@@ -298,7 +274,7 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
     mouse_pos_i[1] = (int)(grid_h - mouse_pos[1] / window_size[1] * grid_h);
 
     mouse_vel[0] = mouse_vel[0] / window_size[0] * grid_w;
-    mouse_vel[1] = mouse_vel[1] / window_size[1] * grid_h;
+    mouse_vel[1] = -(mouse_vel[1] / window_size[1] * grid_h);
 
 
     //calculate dt
@@ -312,6 +288,7 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
         mouse_buttons,
         -1, 
         5.0,
+        BRUSH_SIZE,
         VID,
         V2ID
     );
@@ -363,6 +340,7 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
         mouse_buttons,
         mouse_density % 4, 
         SRC_STRENGTH,
+        BRUSH_SIZE,
         dens_in[mouse_density/4],
         dens_out[mouse_density/4]
     );

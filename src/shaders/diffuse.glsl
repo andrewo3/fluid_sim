@@ -1,6 +1,6 @@
 #version 430
 
-layout(local_size_x = 1, local_size_y = 1) in;
+layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0) uniform sampler2D inputField;
 layout(rgba32f, binding = 1) uniform image2D outputField;
 
@@ -26,5 +26,5 @@ void main() {
     p = clamp(id + ivec2(0,-1), ivec2(0), dims-1);
     vec4 d = imageLoad(outputField,p);
 
-    imageStore(outputField,id,(current + a*(l+u+r+d))/(1+4*a));
+    imageStore(outputField,id,(current + 0.99*a*(l+u+r+d))/(1+4*a));
 }

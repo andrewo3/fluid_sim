@@ -48,8 +48,8 @@ Shader vertexShader(GL_VERTEX_SHADER);
 Shader fragmentShader(GL_FRAGMENT_SHADER);
 
 //Fluid sim object
-const int G_WIDTH = 200;
-const int G_HEIGHT = 200;
+const int G_WIDTH = 256;
+const int G_HEIGHT = 256;
 Fluid* fSim;
 
 //timing
