@@ -68,17 +68,45 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
     dens_in = densIDs;
     dens_out = dens2IDs;
 
-    if (!addDensity((color_t){.r = 255, .g = 0, .b = 0})) {
+    glGenTextures(1, &mixedOut);
+    glBindTexture(GL_TEXTURE_2D, mixedOut);
+
+    float init_mixed[(const int)(grid_w*grid_h*4)];
+    for (int i = 0; i < grid_w*grid_h*4; i++) {
+        init_mixed[i] = 0.0f;
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, grid_w, grid_h, 0, GL_RGBA, GL_FLOAT, init_mixed);
+
+    //linear interpolation between pixels and clamping on edge
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    if (!addDensity((color_t){.r = 1.0, .g = 0.0, .b = 0.0})) {
         printf("Failed to add new color to fluid.\n");
     }
 
-    if (!addDensity((color_t){.r = 255, .g = 0, .b = 0})) {
+    if (!addDensity((color_t){.r = 0.0, .g = 1.0, .b = 0.0})) {
         printf("Failed to add new color to fluid.\n");
     }
 
-    if (!addDensity((color_t){.r = 255, .g = 0, .b = 0})) {
+    if (!addDensity((color_t){.r = 0.0, .g = 0.0, .b = 1.0})) {
         printf("Failed to add new color to fluid.\n");
     }
+    if (!addDensity((color_t){.r = 0.0, .g = 1.0, .b = 1.0})) {
+        printf("Failed to add new color to fluid.\n");
+    }
+
+    if (!addDensity((color_t){.r = 1.0, .g = 1.0, .b = 0.0})) {
+        printf("Failed to add new color to fluid.\n");
+    }
+
+    if (!addDensity((color_t){.r = 1.0, .g = 0.0, .b = 1.0})) {
+        printf("Failed to add new color to fluid.\n");
+    }
+
 
 
     //create shaders and programs
@@ -137,6 +165,14 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printf("Failed to link bound sim program.\n");
         printProgramLog(boundProgram.id);
     }
+
+    mixShader.init("src/shaders/mix.glsl");
+    mixProgram.init();
+    mixProgram.attachShader(&mixShader);
+    if (!mixProgram.link()) {
+        printf("Failed to link mix sim program.\n");
+        printProgramLog(mixProgram.id);
+    }
 }
 
 bool Fluid::addDensity(color_t color) {
@@ -146,6 +182,46 @@ bool Fluid::addDensity(color_t color) {
     colors[densities] = color;
     densities++;
     return true;
+}
+
+bool Fluid::removeDensity(int index) {
+    if (index >= densities || densities == 0) {
+        return false;
+    }
+    //shift everything after the index down, overwriting what was there
+    for (int i = index+1; i < densities; i++) {
+        colors[i-1] = colors[i];
+    }
+    densities--;
+    return true;
+}
+
+void Fluid::mixDensities() {
+    for (int i = 0; i < num_dens_textures; i++) {
+        float mat[12] = {0};
+        for (int c = 0; c < 4; c++) {
+            int idx = 4*i + c;
+            if (idx < MAX_DENSITIES) {
+                mat[c*3 + 0] = colors[idx].r;
+                mat[c*3 + 1] = colors[idx].g;
+                mat[c*3 + 2] = colors[idx].b;
+            }
+        }
+        glUseProgram(mixProgram.id);
+        GLint colorsLoc = glGetUniformLocation(mixProgram.id, "colors");
+        glUniformMatrix4x3fv(colorsLoc,1,GL_FALSE,mat);
+
+        GLint initLoc = glGetUniformLocation(mixProgram.id, "init");
+        glUniform1i(initLoc, i==0);
+
+        //input textures setup
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D,dens_out[i]);
+
+        glBindImageTexture(1, mixedOut, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        glDispatchCompute((GLuint)grid_w/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    }
 }
 
 void Fluid::sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, int brush_size, GLuint input, GLuint output) {
@@ -377,9 +453,9 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
         //run diffuse step for every color
         for (int d = 0; d < (densities + 3) / 4; d++) {
             //update in checkerboard pattern
-            diffuseStep(0, diffRate, dens_in[d / 4], dens_out[d / 4]); // red
-            diffuseStep(1, diffRate, dens_in[d / 4], dens_out[d / 4]); // black
-            boundStep(0,dens_out[d / 4]);
+            diffuseStep(0, diffRate, dens_in[d], dens_out[d]); // red
+            diffuseStep(1, diffRate, dens_in[d], dens_out[d]); // black
+            boundStep(0,dens_out[d]);
         }
     }
 
@@ -390,25 +466,11 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
 
     for (int d = 0; d < (densities + 3) / 4; d++) {
         //update in checkerboard pattern
-        advectStep(dens_in[d / 4], dens_out[d / 4], V2ID);
-        boundStep(0,dens_out[d/4]);
+        advectStep(dens_in[d], dens_out[d], V2ID);
+        boundStep(0,dens_out[d]);
     }
 
-    //swap in and out densities
-    /*tmp2 = dens_out;
-    dens_out = dens_in;
-    dens_in = tmp2;*/
-
-
-    /*
-    //swap in and out velocities
-    GLuint tmp = V2ID;
-    V2ID = VID;
-    VID = tmp;
-    //swap in and out densities
-    GLuint* tmp2 = dens_out;
-    dens_out = dens_in;
-    dens_in = tmp2;*/
+    mixDensities();
 }
 
 Fluid::~Fluid() {

@@ -12,9 +12,9 @@
 #define LOCAL_GROUP_SIZE 16
 
 typedef struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
+    float r;
+    float g;
+    float b;
 } color_t;
 
 class Fluid {
@@ -22,6 +22,7 @@ class Fluid {
         Fluid(int gridw, int gridh, float diff_rate, float visc);
         ~Fluid();
         bool addDensity(color_t dens_color);
+        bool removeDensity(int index);
         void initDensTex(GLuint* id_arr);
         GLuint initVelTex();
 
@@ -33,6 +34,7 @@ class Fluid {
         void project2Step(int redblack, GLuint scratch);
         void project3Step(GLuint scratch, GLuint output);
         void boundStep(int type, GLuint inOut);
+        void mixDensities();
 
         static const int num_dens_textures = (MAX_DENSITIES + 3) / 4;
 
@@ -40,6 +42,7 @@ class Fluid {
         GLuint V2ID;
         GLuint densIDs[num_dens_textures];
         GLuint dens2IDs[num_dens_textures];
+        GLuint mixedOut;
 
         GLuint* dens_in;
         GLuint* dens_out;
@@ -64,6 +67,10 @@ class Fluid {
 
         Shader boundShader = Shader(GL_COMPUTE_SHADER);
         ShaderProgram boundProgram;
+
+        Shader mixShader = Shader(GL_COMPUTE_SHADER);
+        ShaderProgram mixProgram;
+
 
         int grid_w;
         int grid_h;

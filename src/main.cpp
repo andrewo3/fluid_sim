@@ -212,7 +212,7 @@ void render()
         //Enable VAO
         glBindVertexArray(gVAO);
 
-        GLuint texId = velocity_field ? fSim->V2ID : fSim->dens_out[0];
+        GLuint texId = velocity_field ? fSim->V2ID : fSim->mixedOut;
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D,texId);
 
