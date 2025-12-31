@@ -19,7 +19,7 @@ void Fluid::initDensTex(GLuint* id_arr) {
 
     for (int i = 0; i < num_dens_textures; i++) {
         glBindTexture(GL_TEXTURE_2D, id_arr[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, grid_w, grid_h, 0, GL_RGBA, GL_FLOAT, &init_dens);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, grid_w, grid_h, 0, GL_RGBA, GL_FLOAT, init_dens);
     
         //linear interpolation between pixels and clamping on edge
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -30,8 +30,25 @@ void Fluid::initDensTex(GLuint* id_arr) {
 }
 
 GLuint Fluid::initVelTex() {
-    float init_vel[(const int)(grid_w*grid_h*4)] = {0.0};
-    /*float s = 1;
+    float init_vel[grid_w * grid_h * 4];
+    float scale = 1.0f;
+
+    for (int y = 0; y < grid_h; y++) {
+        for (int x = 0; x < grid_w; x++) {
+            int idx = 4 * (y * grid_w + x);
+            
+            // normalize coordinates to [-1, 1]
+            float nx = (float(x) - float(grid_w)/2) / (float(grid_w)/2);
+            float ny = (float(y) - float(grid_h)/2) / (float(grid_h)/2);
+            
+            // vortex velocity
+            init_vel[idx + 0] = -ny * scale; // u
+            init_vel[idx + 1] =  nx * scale; // v
+            init_vel[idx + 2] = 0.0f;        // z
+            init_vel[idx + 3] = 0.0f;        // w
+        }
+    }
+    /*
     for (int i = 0; i < grid_w*grid_h*4; i++) {
         float x = (((i/4) % grid_w)-(grid_w/2))/(grid_w/2.0);
         float y = ((grid_h/2)-((i/4) / grid_w))/(grid_h/2.0);
@@ -44,7 +61,7 @@ GLuint Fluid::initVelTex() {
     GLuint id;
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, grid_w, grid_h, 0, GL_RGBA, GL_FLOAT, &init_vel);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, grid_w, grid_h, 0, GL_RGBA, GL_FLOAT, init_vel);
 
     //linear interpolation between pixels and clamping on edge
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -199,7 +216,7 @@ void Fluid::diffuseStep(int redblack, float rate, GLuint input, GLuint output) {
 
 }
 
-void Fluid::advectStep(GLuint input, GLuint output) {
+void Fluid::advectStep(GLuint input, GLuint output, GLuint vel) {
     glUseProgram(advectProgram.id);
     GLint dtLoc = glGetUniformLocation(advectProgram.id, "dt");
     glUniform1f(dtLoc, dt);
@@ -209,7 +226,7 @@ void Fluid::advectStep(GLuint input, GLuint output) {
     glBindTexture(GL_TEXTURE_2D,input);
 
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D,VID);
+    glBindTexture(GL_TEXTURE_2D,vel);
 
     glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
@@ -217,7 +234,48 @@ void Fluid::advectStep(GLuint input, GLuint output) {
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
-void Fluid::simStep(SDL_Window* window) {
+//1st step of mass conserving procedure
+void Fluid::project1Step(GLuint input, GLuint scratch) {
+    glUseProgram(project1Program.id);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,input);
+
+    glBindImageTexture(1, scratch, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    
+    glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+}
+
+void Fluid::project2Step(int redblack, GLuint scratch) {
+    glUseProgram(project2Program.id);
+    glBindImageTexture(0, scratch, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+    GLint redblackLoc = glGetUniformLocation(project2Program.id, "redblack");
+    glUniform1i(redblackLoc, redblack);
+
+    glDispatchCompute((GLuint)(grid_w/2 + (grid_w%2)),(GLuint)grid_h,1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+}
+
+void Fluid::project3Step(GLuint scratch, GLuint output) {
+    glUseProgram(project3Program.id);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,scratch);  
+
+    glBindImageTexture(1, output, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+    glDispatchCompute((GLuint)grid_w,(GLuint)grid_h,1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+}
+
+void Fluid::boundStep(int type, GLuint inOut) {
+
+}
+
+void Fluid::simStep(SDL_Window* window, float dt_) {
+    dt = dt_;
     float SRC_STRENGTH = 2000.0;
     //get mouse pos, vel, and buttons
     float mouse_pos[2];
@@ -244,10 +302,57 @@ void Fluid::simStep(SDL_Window* window) {
 
 
     //calculate dt
-    currentTime = SDL_GetTicks();
-    dt = (currentTime - lastTime)/1000.0;
-    lastTime = currentTime;
+    
 
+    //VELOCITY WORK
+    //----------------------------------------------------
+    sourceStep(
+        mouse_pos_i,
+        mouse_vel,
+        mouse_buttons,
+        -1, 
+        5.0,
+        VID,
+        V2ID
+    );
+    GLuint tmp = V2ID;
+    V2ID = VID;
+    VID = tmp;
+
+    for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
+        //run diffuse step for velocity
+        //update in checkerboard pattern
+        diffuseStep(0, viscosity, VID, V2ID); // red
+        diffuseStep(1, viscosity, VID, V2ID); // black
+    }
+
+    project1Step(V2ID, VID); // swapped because the output of the last shader is the read-only input for this one
+
+    for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
+        //update in checkerboard pattern
+        project2Step(0, VID); // red
+        project2Step(1, VID); // black
+    }
+
+    project3Step(VID, V2ID);
+
+    //swap in and out velocities
+    tmp = V2ID;
+    V2ID = VID;
+    VID = tmp;
+
+    advectStep(VID,V2ID,VID);
+
+    project1Step(V2ID, VID); // swapped because the output of the last shader is the read-only input for this one
+
+    for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
+        //update in checkerboard pattern
+        project2Step(0, VID); // red
+        project2Step(1, VID); // black
+    }
+
+    project3Step(VID, V2ID);
+    
 
     //DENSITY WORK
     //--------------------------------------------
@@ -283,32 +388,15 @@ void Fluid::simStep(SDL_Window* window) {
 
     for (int d = 0; d < (densities + 3) / 4; d++) {
         //update in checkerboard pattern
-        advectStep(dens_in[d / 4], dens_out[d / 4]); // red
+        advectStep(dens_in[d / 4], dens_out[d / 4], V2ID); // red
     }
 
-    //VELOCITY WORK
-    //----------------------------------------------------
-    sourceStep(
-        mouse_pos_i,
-        mouse_vel,
-        mouse_buttons,
-        -1, 
-        5.0,
-        VID,
-        V2ID
-    );
-    GLuint tmp = V2ID;
-    V2ID = VID;
-    VID = tmp;
+    //swap in and out densities
+    /*tmp2 = dens_out;
+    dens_out = dens_in;
+    dens_in = tmp2;*/
 
-    for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
-        //run diffuse step for velocity
-        //update in checkerboard pattern
-        diffuseStep(0, viscosity, VID, V2ID); // red
-        diffuseStep(1, viscosity, VID, V2ID); // black
-    }
 
-    
     /*
     //swap in and out velocities
     GLuint tmp = V2ID;

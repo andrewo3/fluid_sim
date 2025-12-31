@@ -24,10 +24,14 @@ class Fluid {
         void initDensTex(GLuint* id_arr);
         GLuint initVelTex();
 
-        void simStep(SDL_Window* window);
+        void simStep(SDL_Window* window, float dt);
         void diffuseStep(int redblack, float rate, GLuint input, GLuint output);
         void sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, GLuint input, GLuint output);
-        void advectStep(GLuint input, GLuint output);
+        void advectStep(GLuint input, GLuint output, GLuint vel);
+        void project1Step(GLuint input, GLuint scratch);
+        void project2Step(int redblack, GLuint scratch);
+        void project3Step(GLuint scratch, GLuint output);
+        void boundStep(int type, GLuint inOut);
 
         static const int num_dens_textures = (MAX_DENSITIES + 3) / 4;
 
@@ -59,9 +63,6 @@ class Fluid {
 
         int grid_w;
         int grid_h;
-
-        unsigned long currentTime = 0;
-        unsigned long lastTime = 0;
 
         float diffRate = 0.0;
         float viscosity = 0.0;

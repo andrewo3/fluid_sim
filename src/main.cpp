@@ -52,6 +52,14 @@ const int G_WIDTH = 200;
 const int G_HEIGHT = 200;
 Fluid* fSim;
 
+//timing
+unsigned long currentTime = 0;
+unsigned long lastTime = 0;
+float dt = 0.0;
+
+bool framebyframe = false;
+bool velocity_field = false;
+
 bool initGL() {
     //glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(debugCallback, NULL);
@@ -200,8 +208,9 @@ void render()
         //Enable VAO
         glBindVertexArray(gVAO);
 
+        GLuint texId = velocity_field ? fSim->V2ID : fSim->dens_out[0];
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D,fSim->dens_out[0]);
+        glBindTexture(GL_TEXTURE_2D,texId);
 
         //Enable vertex position
         glEnableVertexAttribArray(gVertexPos2DLocation);
@@ -255,7 +264,7 @@ int main(int argc, char** argv) {
     {
         //The quit flag
         bool quit = false;
-        fSim = new Fluid(G_WIDTH,G_HEIGHT,0.001,0.01);
+        fSim = new Fluid(G_WIDTH,G_HEIGHT,0.0001,0.0000001);
         //The event data
         SDL_Event e;
         SDL_zero(e);
@@ -272,9 +281,25 @@ int main(int argc, char** argv) {
                     fSim->mouse_density += e.wheel.integer_y;
                     fSim->mouse_density = positive_modulo(fSim->mouse_density,fSim->densities);
                     //printf("Mouse density: %i\n",fSim->mouse_density);
+                } else if (e.type == SDL_EVENT_KEY_DOWN) {
+                    if (e.key.key == SDLK_F && framebyframe) {
+                        fSim->simStep(gWindow,0.016);
+                    } else if (e.key.key == SDLK_T) {
+                        framebyframe = framebyframe == false ? true : false;
+                    } else if (e.key.key == SDLK_V) {
+                        velocity_field = velocity_field == false ? true : false;
+                    }
                 }
             }
-            fSim->simStep(gWindow);
+            
+            currentTime = SDL_GetTicks();
+            dt = (currentTime - lastTime)/1000.0;
+            lastTime = currentTime;
+
+            //run sim frame
+            if (!framebyframe) {
+                fSim->simStep(gWindow,dt);
+            }
             //Update the surface
             render();
             SDL_GL_SwapWindow(gWindow);
