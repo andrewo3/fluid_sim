@@ -57,8 +57,11 @@ unsigned long currentTime = 0;
 unsigned long lastTime = 0;
 float dt = 0.0;
 
+
+//options
 bool framebyframe = false;
 bool velocity_field = false;
+bool rainbow = false;
 
 bool initGL() {
     //glEnable(GL_DEBUG_OUTPUT);
@@ -289,6 +292,8 @@ int main(int argc, char** argv) {
                         framebyframe = framebyframe == false ? true : false;
                     } else if (e.key.key == SDLK_V) {
                         velocity_field = velocity_field == false ? true : false;
+                    } else if (e.key.key == SDLK_R) {
+                        rainbow = rainbow == false ? true : false;
                     }
                 } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
                     int width = e.window.data1;
@@ -297,8 +302,7 @@ int main(int argc, char** argv) {
                 }
             }
 
-            const bool* keyStates = SDL_GetKeyboardState( nullptr );
-            if (keyStates[SDL_SCANCODE_R]) {
+            if (rainbow) {
                 fSim->mouse_density = currentTime / 200;
                 fSim->mouse_density %= fSim->densities;
             }
