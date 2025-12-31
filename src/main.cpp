@@ -152,7 +152,7 @@ bool init() {
         success = false;
     } else {
         //Create window
-        if(gWindow = SDL_CreateWindow( "Hello World!", kScreenWidth, kScreenHeight, SDL_WINDOW_OPENGL); gWindow == nullptr)
+        if(gWindow = SDL_CreateWindow( "Fluid Sim", kScreenWidth, kScreenHeight, SDL_WINDOW_OPENGL); gWindow == nullptr)
         {
             SDL_Log("Window could not be created! SDL error: %s\n", SDL_GetError());
             success = false;
