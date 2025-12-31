@@ -62,6 +62,9 @@ class Fluid {
         Shader project3Shader = Shader(GL_COMPUTE_SHADER);
         ShaderProgram project3Program;
 
+        Shader boundShader = Shader(GL_COMPUTE_SHADER);
+        ShaderProgram boundProgram;
+
         int grid_w;
         int grid_h;
 

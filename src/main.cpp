@@ -189,6 +189,7 @@ bool init() {
                 printf("Unable to initialize OpenGL!\n");
                 success = false;
             }
+            SDL_SetWindowResizable(gWindow,true);
         }
     }
     return success;
@@ -289,7 +290,17 @@ int main(int argc, char** argv) {
                     } else if (e.key.key == SDLK_V) {
                         velocity_field = velocity_field == false ? true : false;
                     }
+                } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
+                    int width = e.window.data1;
+                    int height = e.window.data2;
+                    glViewport(0, 0, width, height); // resize OpenGL viewport
                 }
+            }
+
+            const bool* keyStates = SDL_GetKeyboardState( nullptr );
+            if (keyStates[SDL_SCANCODE_R]) {
+                fSim->mouse_density = currentTime / 200;
+                fSim->mouse_density %= fSim->densities;
             }
             
             currentTime = SDL_GetTicks();

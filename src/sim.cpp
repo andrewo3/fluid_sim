@@ -129,6 +129,14 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printf("Failed to link project3 sim program.\n");
         printProgramLog(project3Program.id);
     }
+
+    boundShader.init("src/shaders/bound.glsl");
+    boundProgram.init();
+    boundProgram.attachShader(&boundShader);
+    if (!boundProgram.link()) {
+        printf("Failed to link bound sim program.\n");
+        printProgramLog(boundProgram.id);
+    }
 }
 
 bool Fluid::addDensity(color_t color) {
@@ -246,12 +254,19 @@ void Fluid::project3Step(GLuint scratch, GLuint output) {
 }
 
 void Fluid::boundStep(int type, GLuint inOut) {
+    glUseProgram(boundProgram.id);
+    glBindImageTexture(0, inOut, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
+    GLint typeLoc = glGetUniformLocation(boundProgram.id, "type");
+    glUniform1i(typeLoc, type);
+
+    glDispatchCompute((GLuint)grid_w/LOCAL_GROUP_SIZE,(GLuint)grid_h/LOCAL_GROUP_SIZE,1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 void Fluid::simStep(SDL_Window* window, float dt_) {
     dt = dt_;
-    float SRC_STRENGTH = 2000.0;
+    float SRC_STRENGTH = 1500.0;
     float BRUSH_SIZE = 1;
     //get mouse pos, vel, and buttons
     float mouse_pos[2];
@@ -301,17 +316,21 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
         //update in checkerboard pattern
         diffuseStep(0, viscosity, VID, V2ID); // red
         diffuseStep(1, viscosity, VID, V2ID); // black
+        boundStep(1,VID);
     }
 
     project1Step(V2ID, VID); // swapped because the output of the last shader is the read-only input for this one
-
+    boundStep(0,VID);
+    
     for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
         //update in checkerboard pattern
         project2Step(0, VID); // red
         project2Step(1, VID); // black
+        boundStep(0,VID);
     }
 
     project3Step(VID, V2ID);
+    boundStep(1,V2ID);
 
     //swap in and out velocities
     tmp = V2ID;
@@ -319,16 +338,20 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
     VID = tmp;
 
     advectStep(VID,V2ID,VID);
+    boundStep(1,V2ID);
 
     project1Step(V2ID, VID); // swapped because the output of the last shader is the read-only input for this one
+    boundStep(0,VID);
 
     for (int i = 0; i < GAUSS_SEIDEL_ITERS; i++) {
         //update in checkerboard pattern
         project2Step(0, VID); // red
         project2Step(1, VID); // black
+        boundStep(0,VID);
     }
 
     project3Step(VID, V2ID);
+    boundStep(1,V2ID);
     
 
     //DENSITY WORK
@@ -356,6 +379,7 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
             //update in checkerboard pattern
             diffuseStep(0, diffRate, dens_in[d / 4], dens_out[d / 4]); // red
             diffuseStep(1, diffRate, dens_in[d / 4], dens_out[d / 4]); // black
+            boundStep(0,dens_out[d / 4]);
         }
     }
 
@@ -366,7 +390,8 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
 
     for (int d = 0; d < (densities + 3) / 4; d++) {
         //update in checkerboard pattern
-        advectStep(dens_in[d / 4], dens_out[d / 4], V2ID); // red
+        advectStep(dens_in[d / 4], dens_out[d / 4], V2ID);
+        boundStep(0,dens_out[d/4]);
     }
 
     //swap in and out densities
