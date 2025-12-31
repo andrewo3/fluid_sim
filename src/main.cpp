@@ -62,6 +62,8 @@ float dt = 0.0;
 bool framebyframe = false;
 bool velocity_field = false;
 bool rainbow = false;
+bool fullscreen = false;
+bool show_cursor = false;
 
 bool initGL() {
     //glEnable(GL_DEBUG_OUTPUT);
@@ -269,6 +271,11 @@ int main(int argc, char** argv) {
         //The quit flag
         bool quit = false;
         fSim = new Fluid(G_WIDTH,G_HEIGHT,0.0001,0.0000001);
+        if (!show_cursor) {
+            SDL_HideCursor();
+        } else {
+            SDL_ShowCursor();
+        }
         //The event data
         SDL_Event e;
         SDL_zero(e);
@@ -294,6 +301,16 @@ int main(int argc, char** argv) {
                         velocity_field = velocity_field == false ? true : false;
                     } else if (e.key.key == SDLK_R) {
                         rainbow = rainbow == false ? true : false;
+                    } else if (e.key.key == SDLK_F11) {
+                        fullscreen = fullscreen == false ? true : false;
+                        SDL_SetWindowFullscreen(gWindow,fullscreen);
+                    } else if (e.key.key == SDLK_C) {
+                        show_cursor = show_cursor == false ? true : false;
+                        if (!show_cursor) {
+                            SDL_HideCursor();
+                        } else {
+                            SDL_ShowCursor();
+                        }
                     }
                 } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
                     int width = e.window.data1;

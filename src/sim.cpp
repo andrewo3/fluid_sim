@@ -84,7 +84,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    if (!addDensity((color_t){.r = 1.0, .g = 0.0, .b = 0.0})) {
+    /*if (!addDensity((color_t){.r = 1.0, .g = 0.0, .b = 0.0})) {
         printf("Failed to add new color to fluid.\n");
     }
 
@@ -105,9 +105,12 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
 
     if (!addDensity((color_t){.r = 1.0, .g = 0.0, .b = 1.0})) {
         printf("Failed to add new color to fluid.\n");
-    }
+    }*/
 
-
+    addDensity((color_t){.r = 1.0, .g = 0.0, .b = 0.0});
+    addDensity((color_t){.r = 1.0, .g = 0.5, .b = 0.0});
+    addDensity((color_t){.r = 1.0, .g = 1.0, .b = 0.0});
+    addDensity((color_t){.r = 1.0, .g = 0.0, .b = 1.0});
 
     //create shaders and programs
     sourceShader.init("src/shaders/source.glsl");
@@ -366,9 +369,6 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
 
     mouse_vel[0] = mouse_vel[0] / window_size[0] * grid_w;
     mouse_vel[1] = -(mouse_vel[1] / window_size[1] * grid_h);
-
-
-    //calculate dt
     
 
     //VELOCITY WORK

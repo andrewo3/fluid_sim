@@ -26,5 +26,5 @@ void main() {
     p = clamp(id + ivec2(0,-1), ivec2(0), dims-1);
     vec4 d = imageLoad(outputField,p);
 
-    imageStore(outputField,id,(current + 0.99*a*(l+u+r+d))/(1+4*a));
+    imageStore(outputField,id,(current + 0.992*a*(l+u+r+d))/(1+4*a));
 }
