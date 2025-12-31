@@ -67,7 +67,7 @@ void main() {
     //right click cell
     if (length(id - mouse_pos) <= brush_size && mouse_buttons.z != 0) {
         addSourceFromMouse(id);
-    } else if (length(id - mouse_pos) <= brush_size && mouse_buttons.x != 0) {
+    } else if (length(id - mouse_pos) <= brush_size*2 && mouse_buttons.x != 0) {
         addForceFromMouse(id);
     } else if (length(id - mouse_pos) <= brush_size*10 && mouse_buttons.y != 0) {
         addSinkFromMouse(id,mouse_pos);
