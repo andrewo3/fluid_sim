@@ -14,6 +14,9 @@ INCLUDE_DIRS := include
 LIB_DIRS := lib
 LIBS := SDL3 glew32 opengl32 glu32
 
+SHADERS_SRC := $(SRC_DIR)/shaders
+SHADERS_DST := $(BIN_DIR)/shaders
+
 # ------------------------
 # OS Detection
 # ------------------------
@@ -31,6 +34,12 @@ else
     RM = rm -f
     RMDIR = rm -rf
     SRCS := $(wildcard $(SRC_DIR)/**/*.cpp)
+endif
+
+ifeq ($(OS),Windows_NT)
+    COPYDIR = robocopy
+else
+    COPYDIR = cp -r
 endif
 
 # ------------------------
@@ -55,7 +64,7 @@ all: build
 build: $(BIN_DIR)/$(EXE)
 
 # Link object files
-$(BIN_DIR)/$(EXE): $(OBJS)
+$(BIN_DIR)/$(EXE): $(OBJS) copy_shaders
 	$(call MKDIR,$(BIN_DIR))
 	$(CXX) $(CXXFLAGS) $(OBJS) -o "$@" $(LDFLAGS)
 
@@ -68,6 +77,16 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 $(BUILD_DIR)/%.o: $(SRC_DIR)\%.cpp
 	$(call MKDIR,$(dir $@))
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) -c "$<" -o "$@"
+
+# Copy shaders to bin/
+copy_shaders:
+	$(call MKDIR,$(BIN_DIR))
+	@echo Copying shaders to $(SHADERS_DST)
+ifeq ($(OS),Windows_NT)
+	@robocopy "$(SHADERS_SRC)" "$(SHADERS_DST)" /E /NFL /NDL /NJH /NJS /NC /NS >NUL || exit 0
+else
+	cp -r "$(SHADERS_SRC)" "$(SHADERS_DST)"
+endif
 
 # Run the program
 run: build

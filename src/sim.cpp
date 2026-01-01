@@ -114,7 +114,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
     addDensity((color_t){.r = 1.0, .g = 1.0, .b = 0.0});
 
     //create shaders and programs
-    sourceShader.init("src/shaders/source.glsl");
+    sourceShader.init("shaders/source.glsl");
     sourceProgram.init();
     sourceProgram.attachShader(&sourceShader);
     if (!sourceProgram.link()) {
@@ -122,7 +122,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(sourceProgram.id);
     }
 
-    diffuseShader.init("src/shaders/diffuse.glsl");
+    diffuseShader.init("shaders/diffuse.glsl");
     diffuseProgram.init();
     diffuseProgram.attachShader(&diffuseShader);
     if (!diffuseProgram.link()) {
@@ -130,7 +130,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(diffuseProgram.id);
     }
 
-    advectShader.init("src/shaders/advect.glsl");
+    advectShader.init("shaders/advect.glsl");
     advectProgram.init();
     advectProgram.attachShader(&advectShader);
     if (!advectProgram.link()) {
@@ -138,7 +138,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(advectProgram.id);
     }
 
-    project1Shader.init("src/shaders/project1.glsl");
+    project1Shader.init("shaders/project1.glsl");
     project1Program.init();
     project1Program.attachShader(&project1Shader);
     if (!project1Program.link()) {
@@ -146,7 +146,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(project1Program.id);
     }
 
-    project2Shader.init("src/shaders/project2.glsl");
+    project2Shader.init("shaders/project2.glsl");
     project2Program.init();
     project2Program.attachShader(&project2Shader);
     if (!project2Program.link()) {
@@ -154,7 +154,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(project2Program.id);
     }
 
-    project3Shader.init("src/shaders/project3.glsl");
+    project3Shader.init("shaders/project3.glsl");
     project3Program.init();
     project3Program.attachShader(&project3Shader);
     if (!project3Program.link()) {
@@ -162,7 +162,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(project3Program.id);
     }
 
-    boundShader.init("src/shaders/bound.glsl");
+    boundShader.init("shaders/bound.glsl");
     boundProgram.init();
     boundProgram.attachShader(&boundShader);
     if (!boundProgram.link()) {
@@ -170,7 +170,7 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
         printProgramLog(boundProgram.id);
     }
 
-    mixShader.init("src/shaders/mix.glsl");
+    mixShader.init("shaders/mix.glsl");
     mixProgram.init();
     mixProgram.attachShader(&mixShader);
     if (!mixProgram.link()) {
@@ -346,7 +346,7 @@ void Fluid::boundStep(int type, GLuint inOut) {
 
 void Fluid::simStep(Mouse* mouse, float dt_) {
     dt = dt_;
-    float SRC_STRENGTH = 400.0;
+    float SRC_STRENGTH = 300.0;
     float BRUSH_SIZE = 1;
     //get mouse pos, vel, and buttons
 

@@ -4,6 +4,23 @@
 #include <gl/GLU.h>
 #include <fstream>
 #include <algorithm>
+#include <filesystem>
+
+#if defined(_WIN32)
+#include <Windows.h>
+std::filesystem::path getExeDir() {
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    return std::filesystem::path(buffer).parent_path();
+}
+#else
+#include <unistd.h>
+std::filesystem::path getExeDir() {
+    char buffer[1024];
+    ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer));
+    return std::filesystem::path(std::string(buffer, len)).parent_path();
+}
+#endif
 
 void printShaderLog( GLuint shader )
 {
@@ -73,8 +90,9 @@ Shader::Shader(GLenum typ) {
 }
 
 bool Shader::init(std::string filename) {
+    auto shaderPath = getExeDir() / filename;
     std::ifstream file;
-    file.open(filename, std::ios::in | std::ios::binary);
+    file.open(shaderPath, std::ios::in | std::ios::binary);
     if (!file.is_open())
         return false;
     file.seekg(0, file.end);

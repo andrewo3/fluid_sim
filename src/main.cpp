@@ -75,13 +75,13 @@ bool initGL() {
     //Generate program
     gProgram.init();
     //initialize shaders
-    if (!vertexShader.init("src/shaders/vertex.glsl")) {
+    if (!vertexShader.init("shaders/vertex.glsl")) {
         printf("Unable to compile vertex shader %d!\n", vertexShader.id);
         printShaderLog(vertexShader.id);
         return false;
     }
 
-    if (!fragmentShader.init("src/shaders/frag.glsl")) {
+    if (!fragmentShader.init("shaders/frag.glsl")) {
         printf("Unable to compile fragment shader %d!\n", fragmentShader.id);
         printShaderLog(fragmentShader.id);
         return false;
