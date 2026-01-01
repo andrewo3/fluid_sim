@@ -9,6 +9,10 @@ Mouse::Mouse(bool autom, SDL_Window* win, int gw, int gh) {
     grid_h = gh;
 }
 
+void Mouse::resize() {
+    SDL_GetWindowSize(window,window_size,window_size+1);
+}
+
 void Mouse::getPos(int* wr) {
     if (!automated) {
         float mouse_pos[2];

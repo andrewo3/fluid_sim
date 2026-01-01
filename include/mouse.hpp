@@ -11,6 +11,7 @@ class Mouse {
         void getPos(int* wr);
         void getVel(float* wr);
         void getButtons(int* wr);
+        void resize();
 
         int window_size[2];
         int grid_w;

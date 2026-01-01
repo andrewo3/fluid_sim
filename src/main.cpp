@@ -319,6 +319,7 @@ int main(int argc, char** argv) {
                     int width = e.window.data1;
                     int height = e.window.data2;
                     glViewport(0, 0, width, height); // resize OpenGL viewport
+                    mouse.resize();
                 }
             }
 
