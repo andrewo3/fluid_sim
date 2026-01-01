@@ -107,11 +107,11 @@ Fluid::Fluid(int gridw, int gridh, float diff_rate, float visc) {
     if (!addDensity((color_t){.r = 1.0, .g = 0.0, .b = 1.0})) {
         printf("Failed to add new color to fluid.\n");
     }*/
-
+    addDensity((color_t){.r = 1.0, .g = 0.0, .b = 1.0});
+    addDensity((color_t){.r = 1.0, .g = 0.0, .b = 0.5});
     addDensity((color_t){.r = 1.0, .g = 0.0, .b = 0.0});
     addDensity((color_t){.r = 1.0, .g = 0.5, .b = 0.0});
     addDensity((color_t){.r = 1.0, .g = 1.0, .b = 0.0});
-    addDensity((color_t){.r = 1.0, .g = 0.0, .b = 1.0});
 
     //create shaders and programs
     sourceShader.init("src/shaders/source.glsl");
@@ -346,7 +346,7 @@ void Fluid::boundStep(int type, GLuint inOut) {
 
 void Fluid::simStep(Mouse* mouse, float dt_) {
     dt = dt_;
-    float SRC_STRENGTH = 1500.0;
+    float SRC_STRENGTH = 400.0;
     float BRUSH_SIZE = 1;
     //get mouse pos, vel, and buttons
 
@@ -360,6 +360,13 @@ void Fluid::simStep(Mouse* mouse, float dt_) {
 
     //VELOCITY WORK
     //----------------------------------------------------
+    //by the end of the last iteration, VID is scratch work. We want to copy V2ID to VID here:
+    glCopyImageSubData(
+        V2ID, GL_TEXTURE_2D, 0, 0, 0, 0,
+        VID, GL_TEXTURE_2D, 0, 0, 0, 0,
+        grid_w, grid_h, 1
+    );
+
     sourceStep(
         mouse_pos,
         mouse_vel,

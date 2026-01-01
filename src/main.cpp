@@ -8,6 +8,7 @@
 #include "shader.hpp"
 #include "sim.hpp"
 #include <windows.h>
+#include <cstdlib>
 
 
 void APIENTRY debugCallback(
@@ -61,7 +62,7 @@ float dt = 0.0;
 //options
 bool framebyframe = false;
 bool velocity_field = false;
-bool rainbow = false;
+bool rainbow = true;
 bool fullscreen = false;
 bool show_cursor = false;
 
@@ -147,6 +148,8 @@ bool initGL() {
 bool init() {
     //Initialization flag
     bool success = true;
+
+    srand(time(nullptr)); 
 
     //Initialize SDL
     if( SDL_Init( SDL_INIT_VIDEO ) == false) {
@@ -270,14 +273,14 @@ int main(int argc, char** argv) {
     {
         //The quit flag
         bool quit = false;
-        fSim = new Fluid(G_WIDTH,G_HEIGHT,0.0001,0.0000001);
+        fSim = new Fluid(G_WIDTH,G_HEIGHT,0.00001,0.00001);
         if (!show_cursor) {
             SDL_HideCursor();
         } else {
             SDL_ShowCursor();
         }
 
-        Mouse mouse(false,gWindow,G_WIDTH,G_HEIGHT);
+        Mouse mouse(true,gWindow,G_WIDTH,G_HEIGHT);
 
         //The event data
         SDL_Event e;
@@ -333,9 +336,11 @@ int main(int argc, char** argv) {
             lastTime = currentTime;
 
             //run sim frame
+            mouse.update();
             if (!framebyframe) {
                 fSim->simStep(&mouse,dt);
             }
+
             //Update the surface
             render();
             SDL_GL_SwapWindow(gWindow);

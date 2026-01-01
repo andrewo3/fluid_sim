@@ -45,10 +45,11 @@ void addSinkFromMouse(ivec2 id,ivec2 sink_center) {
         //setComponent(outv,component,-dt*source_strength);
     } else {
         float d = length(id-sink_center);
-        vec2 pull = source_strength*vec2(id-sink_center)/(d*d/256+0.00001);
+        vec2 pull = source_strength*vec2(id-sink_center)/(d*d*20+0.00001);
         outv = vec4(-pull,0.0,0.0);
+        imageStore(outputField,id,current + outv);
     }
-    imageStore(outputField,id,current*1/source_strength + outv);
+    
 }
 
 void addForceFromMouse(ivec2 id) {
@@ -69,7 +70,7 @@ void main() {
         addSourceFromMouse(id);
     } else if (length(id - mouse_pos) <= brush_size*2 && mouse_buttons.x != 0) {
         addForceFromMouse(id);
-    } else if (length(id - mouse_pos) <= brush_size*10 && mouse_buttons.y != 0) {
+    } else if (mouse_buttons.y != 0) {
         addSinkFromMouse(id,mouse_pos);
     }
 }
