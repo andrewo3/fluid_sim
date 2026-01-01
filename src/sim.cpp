@@ -5,6 +5,7 @@
 #include <string>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_timer.h>
+#include "mouse.hpp"
 
 
 
@@ -343,38 +344,24 @@ void Fluid::boundStep(int type, GLuint inOut) {
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
-void Fluid::simStep(SDL_Window* window, float dt_) {
+void Fluid::simStep(Mouse* mouse, float dt_) {
     dt = dt_;
     float SRC_STRENGTH = 1500.0;
     float BRUSH_SIZE = 1;
     //get mouse pos, vel, and buttons
-    float mouse_pos[2];
+
+    int mouse_pos[2];
     float mouse_vel[2];
-    SDL_MouseButtonFlags buttons = SDL_GetMouseState(mouse_pos,mouse_pos+1);
-    SDL_MouseButtonFlags buttons2 = SDL_GetRelativeMouseState(mouse_vel,mouse_vel+1);
+    int mouse_buttons[3];
+    mouse->getPos(mouse_pos);
+    mouse->getVel(mouse_vel);
+    mouse->getButtons(mouse_buttons);
 
-    int window_size[2];
-    SDL_GetWindowSize(window,window_size,window_size+1);
-
-    int mouse_buttons[3] = {
-        buttons & SDL_BUTTON_LMASK,
-        buttons & SDL_BUTTON_MMASK,
-        buttons & SDL_BUTTON_RMASK
-    };
-
-    int mouse_pos_i[2];
-
-    mouse_pos_i[0] = (int)(mouse_pos[0] / window_size[0] * grid_w);
-    mouse_pos_i[1] = (int)(grid_h - mouse_pos[1] / window_size[1] * grid_h);
-
-    mouse_vel[0] = mouse_vel[0] / window_size[0] * grid_w;
-    mouse_vel[1] = -(mouse_vel[1] / window_size[1] * grid_h);
-    
 
     //VELOCITY WORK
     //----------------------------------------------------
     sourceStep(
-        mouse_pos_i,
+        mouse_pos,
         mouse_vel,
         mouse_buttons,
         -1, 
@@ -434,7 +421,7 @@ void Fluid::simStep(SDL_Window* window, float dt_) {
     //--------------------------------------------
     //run source step
     sourceStep(
-        mouse_pos_i,
+        mouse_pos,
         mouse_vel,
         mouse_buttons,
         mouse_density % 4, 

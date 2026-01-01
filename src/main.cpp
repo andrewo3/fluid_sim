@@ -276,6 +276,9 @@ int main(int argc, char** argv) {
         } else {
             SDL_ShowCursor();
         }
+
+        Mouse mouse(false,gWindow,G_WIDTH,G_HEIGHT);
+
         //The event data
         SDL_Event e;
         SDL_zero(e);
@@ -294,7 +297,7 @@ int main(int argc, char** argv) {
                     //printf("Mouse density: %i\n",fSim->mouse_density);
                 } else if (e.type == SDL_EVENT_KEY_DOWN) {
                     if (e.key.key == SDLK_F && framebyframe) {
-                        fSim->simStep(gWindow,0.016);
+                        fSim->simStep(&mouse,0.016);
                     } else if (e.key.key == SDLK_T) {
                         framebyframe = framebyframe == false ? true : false;
                     } else if (e.key.key == SDLK_V) {
@@ -330,7 +333,7 @@ int main(int argc, char** argv) {
 
             //run sim frame
             if (!framebyframe) {
-                fSim->simStep(gWindow,dt);
+                fSim->simStep(&mouse,dt);
             }
             //Update the surface
             render();

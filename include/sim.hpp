@@ -6,6 +6,7 @@
 #include <gl/GLU.h>
 #include <vector>
 #include <SDL3/SDL.h>
+#include "mouse.hpp"
 
 #define MAX_DENSITIES 8 //should ideally be a multiple of 4 to make RGBA textures out of
 #define GAUSS_SEIDEL_ITERS 20
@@ -26,7 +27,7 @@ class Fluid {
         void initDensTex(GLuint* id_arr);
         GLuint initVelTex();
 
-        void simStep(SDL_Window* window, float dt);
+        void simStep(Mouse* mouse, float dt);
         void diffuseStep(int redblack, float rate, GLuint input, GLuint output);
         void sourceStep(int* mouse_pos_i, float* mouse_vel, int* mouse_buttons, int component, float strength, int brush_size, GLuint input, GLuint output);
         void advectStep(GLuint input, GLuint output, GLuint vel);
