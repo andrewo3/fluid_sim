@@ -12,6 +12,8 @@ long GetTicks() {
 Mouse::Mouse(int gw, int gh) {
     grid_w = gw;
     grid_h = gh;
+    window_size[0] = gw;
+    window_size[1] = gh;
 }
 
 float Mouse::interp(int start, int end, float t) {
