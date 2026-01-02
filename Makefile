@@ -4,7 +4,9 @@
 TARGET := main
 
 CXX := g++
+CC := gcc
 CXXFLAGS := -Wall -Wextra -std=c++17
+CFLAGS := -Wall -Wextra -std=c11
 
 # Directories (relative to Makefile)
 SRC_DIR := src
@@ -12,10 +14,10 @@ BUILD_DIR := build
 BIN_DIR := bin
 INCLUDE_DIRS := include
 LIB_DIRS := lib
-LIBS := GLEW GL GLU EGL lz4
+LIBS := glew32 opengl32 glu32 gdi32 user32 ws2_32
 
 SHADERS_SRC := $(SRC_DIR)/shaders
-SHADERS_DST := $(BIN_DIR)
+SHADERS_DST := $(BIN_DIR)/shaders
 
 # ------------------------
 # OS Detection
@@ -27,13 +29,15 @@ ifeq ($(OS),Windows_NT)
     RMDIR = rmdir /S /Q
     # Recursive wildcard for Windows
     rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
-    SRCS := $(call rwildcard,$(SRC_DIR)/,*.cpp)
+    SRCS_CPP := $(call rwildcard,$(SRC_DIR)/,*.cpp)
+    SRCS_C   := $(call rwildcard,$(SRC_DIR)/,*.c)
 else
     EXE := $(TARGET)
     MKDIR = mkdir -p $(1)
     RM = rm -f
     RMDIR = rm -rf
-    SRCS := $(shell find $(SRC_DIR) -name '*.cpp')
+    SRCS_CPP := $(shell find $(SRC_DIR) -name '*.cpp')
+    SRCS_C   := $(shell find $(SRC_DIR) -name '*.c')
 endif
 
 ifeq ($(OS),Windows_NT)
@@ -46,8 +50,11 @@ endif
 # Objects
 # ------------------------
 # Convert source paths to object paths in build/
-OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
-OBJS := $(patsubst $(SRC_DIR)\%.cpp,$(BUILD_DIR)/%.o,$(OBJS))  # Windows paths
+OBJS_CPP := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS_CPP))
+OBJS_CPP := $(patsubst $(SRC_DIR)\%.cpp,$(BUILD_DIR)/%.o,$(OBJS_CPP))  # Windows paths
+OBJS_C   := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS_C))
+OBJS_C   := $(patsubst $(SRC_DIR)\%.c,$(BUILD_DIR)/%.o,$(OBJS_C))      # Windows paths
+OBJS := $(OBJS_CPP) $(OBJS_C)
 
 # ------------------------
 # Flags
@@ -68,15 +75,24 @@ $(BIN_DIR)/$(EXE): $(OBJS) copy_shaders
 	$(call MKDIR,$(BIN_DIR))
 	$(CXX) $(CXXFLAGS) $(OBJS) -o "$@" $(LDFLAGS)
 
-# Compile object files (Linux/macOS)
+# Compile C++ object files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	$(call MKDIR,$(dir $@))
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) -c "$<" -o "$@"
 
-# Compile object files (Windows)
+# Compile C object files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	$(call MKDIR,$(dir $@))
+	$(CC) $(CFLAGS) $(INCFLAGS) -c "$<" -o "$@"
+
+# Windows backslash paths
 $(BUILD_DIR)/%.o: $(SRC_DIR)\%.cpp
 	$(call MKDIR,$(dir $@))
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) -c "$<" -o "$@"
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)\%.c
+	$(call MKDIR,$(dir $@))
+	$(CC) $(CFLAGS) $(INCFLAGS) -c "$<" -o "$@"
 
 # Copy shaders to bin/
 copy_shaders:

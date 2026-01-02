@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <unistd.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
 #include <GL/glew.h>
+#include <GL/wglew.h>
 #include <GL/glu.h>
 #include <fstream>
 #include "shader.hpp"
@@ -11,6 +10,7 @@
 #include "network.hpp"
 #include <cstdlib>
 #include <queue>
+#include <windows.h>
 
 #define FPS_BUFFER_LENGTH 3
 
@@ -53,10 +53,10 @@ float dt = 0.0;
 long frames = 0;
 std::deque<float> fps_meas;
 
-//EGL Context
-EGLDisplay display;
-EGLContext context;
-EGLSurface surface;
+//WGL context
+HWND   g_hWnd   = nullptr;
+HDC    g_hDC    = nullptr;
+HGLRC  g_hGLRC  = nullptr;
 
 
 //options
@@ -145,77 +145,109 @@ bool initGL() {
     return success;
 }
 
-/* Function Implementations */
 bool init() {
-    //Initialization flag
-    srand(time(nullptr)); 
+    srand((unsigned int)time(nullptr));
 
-    // TODO: Create OpenGL Context with EGL
-    display = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, NULL);
-    if (display == EGL_NO_DISPLAY) {
-        fprintf(stderr, "Failed to get EGL display\n");
+    /* ---------------------------------------------------------
+       1. Create hidden Win32 window
+    --------------------------------------------------------- */
+    WNDCLASS wc = {};
+    wc.style = CS_OWNDC;
+    wc.lpfnWndProc = DefWindowProc;
+    wc.hInstance = GetModuleHandle(nullptr);
+    wc.lpszClassName = "WGLWindowClass";
+
+    if (!RegisterClass(&wc)) {
+        fprintf(stderr, "Failed to register window class\n");
         return false;
     }
 
-    if (!eglInitialize(display, NULL, NULL)) {
-        fprintf(stderr, "Failed to initialize EGL\n");
+    g_hWnd = CreateWindow(
+        wc.lpszClassName,
+        "Hidden OpenGL Window",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        G_WIDTH, G_HEIGHT,
+        nullptr, nullptr,
+        wc.hInstance,
+        nullptr
+    );
+
+    if (!g_hWnd) {
+        fprintf(stderr, "Failed to create window\n");
         return false;
     }
 
-    EGLConfig config;
-    EGLint numConfigs;
+    g_hDC = GetDC(g_hWnd);
 
-    EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, // request desktop OpenGL
-        EGL_RED_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
-        EGL_BLUE_SIZE, 8,
-        EGL_ALPHA_SIZE, 8,
-        EGL_NONE
-    };
-    eglChooseConfig(display, configAttribs, &config, 1, &numConfigs);
-    if (numConfigs < 1) {
-        fprintf(stderr, "No suitable EGL configs found\n");
+    /* ---------------------------------------------------------
+       2. Set pixel format
+    --------------------------------------------------------- */
+    PIXELFORMATDESCRIPTOR pfd = {};
+    pfd.nSize      = sizeof(pfd);
+    pfd.nVersion   = 1;
+    pfd.dwFlags    = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
+    pfd.cAlphaBits = 8;
+    pfd.cDepthBits = 24;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+
+    int pf = ChoosePixelFormat(g_hDC, &pfd);
+    if (!pf || !SetPixelFormat(g_hDC, pf, &pfd)) {
+        fprintf(stderr, "Failed to set pixel format\n");
         return false;
     }
 
-    surface = eglCreatePbufferSurface(display, config, (EGLint[]){
-        EGL_WIDTH, G_WIDTH,
-        EGL_HEIGHT, G_HEIGHT,
-        EGL_NONE
-    });
-
-    if (surface == EGL_NO_SURFACE) {
-        fprintf(stderr, "Failed to create EGL surface\n");
+    /* ---------------------------------------------------------
+       3. Create temporary OpenGL context
+    --------------------------------------------------------- */
+    HGLRC tempContext = wglCreateContext(g_hDC);
+    if (!tempContext || !wglMakeCurrent(g_hDC, tempContext)) {
+        fprintf(stderr, "Failed to create temporary GL context\n");
         return false;
     }
 
-    eglBindAPI(EGL_OPENGL_API);
-
-    EGLint contextAttribs[] = {
-        EGL_CONTEXT_MAJOR_VERSION, 4,
-        EGL_CONTEXT_MINOR_VERSION, 3,
-        EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-        EGL_NONE
-    };
-
-    context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-    eglMakeCurrent(display, surface, surface, context);
-
-    if (context == EGL_NO_CONTEXT) {
-        fprintf(stderr, "Failed to create EGL context\n");
-        return false;
-    }
-
+    /* ---------------------------------------------------------
+       4. Initialize GLEW (to get WGL extensions)
+    --------------------------------------------------------- */
     GLenum err = glewInit();
     if (err != GLEW_OK) {
-        fprintf(stderr, "GLEW initialization failed: %s\n", glewGetErrorString(err));
+        fprintf(stderr, "GLEW init failed: %s\n", glewGetErrorString(err));
         return false;
     }
+
+    if (!wglCreateContextAttribsARB) {
+        fprintf(stderr, "wglCreateContextAttribsARB not supported\n");
+        return false;
+    }
+
+    /* ---------------------------------------------------------
+       5. Create OpenGL 4.3 Core context
+    --------------------------------------------------------- */
+    int contextAttribs[] = {
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+        WGL_CONTEXT_PROFILE_MASK_ARB,  WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        0
+    };
+
+    g_hGLRC = wglCreateContextAttribsARB(g_hDC, 0, contextAttribs);
+    if (!g_hGLRC) {
+        fprintf(stderr, "Failed to create OpenGL 4.3 context\n");
+        return false;
+    }
+
+    /* ---------------------------------------------------------
+       6. Replace temporary context
+    --------------------------------------------------------- */
+    wglMakeCurrent(nullptr, nullptr);
+    wglDeleteContext(tempContext);
+    wglMakeCurrent(g_hDC, g_hGLRC);
 
     return true;
 }
+
 
 void close()
 {
@@ -247,7 +279,6 @@ int main(int argc, char** argv) {
         //The event data
         //The main loop
         while (quit == false) {
-
             if (rainbow) {
                 fSim->mouse_density = currentTime / 200;
                 fSim->mouse_density %= fSim->densities;
@@ -263,7 +294,6 @@ int main(int argc, char** argv) {
             }
             dt = (currentTime - lastTime)/1000.0;
             lastTime = currentTime;
-
             //run sim frame
             mouse.update();
             if (!framebyframe) {
@@ -280,8 +310,10 @@ int main(int argc, char** argv) {
 
             glBindTexture(GL_TEXTURE_2D, fSim->mixedOut);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel_data);
+
             conn.sendFrame(pixel_data, G_WIDTH*G_HEIGHT*3);
-            sleep(1/60.0);
+            
+            Sleep(1000/60);
         }
     }
     printf("end\n");

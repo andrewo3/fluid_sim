@@ -1,6 +1,7 @@
 #include "mouse.hpp"
 #include <cstdlib>
 #include <chrono>
+#include <cstdio>
 
 std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
@@ -12,6 +13,8 @@ long GetTicks() {
 Mouse::Mouse(int gw, int gh) {
     grid_w = gw;
     grid_h = gh;
+    window_size[0] = gw;
+    window_size[1] = gh;
 }
 
 float Mouse::interp(int start, int end, float t) {
@@ -24,10 +27,8 @@ void Mouse::update() {
         if (time - last_time > duration) {
             start_pos[0] = rand() % window_size[0];
             start_pos[1] = rand() % window_size[1];
-
             end_pos[0] = rand() % window_size[0];
             end_pos[1] = rand() % window_size[1];
-
             action = rand() % 4;
             action %= 3;
 
