@@ -9,6 +9,9 @@
 #include "sim.hpp"
 #include <windows.h>
 #include <cstdlib>
+#include <queue>
+
+#define FPS_BUFFER_LENGTH 3
 
 
 void APIENTRY debugCallback(
@@ -57,6 +60,8 @@ Fluid* fSim;
 unsigned long currentTime = 0;
 unsigned long lastTime = 0;
 float dt = 0.0;
+long frames = 0;
+std::deque<float> fps_meas;
 
 
 //options
@@ -65,9 +70,10 @@ bool velocity_field = false;
 bool rainbow = true;
 bool fullscreen = false;
 bool show_cursor = false;
+bool automated = true;
 
 bool initGL() {
-    //glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(debugCallback, NULL);
     //Success flag
     bool success = true;
@@ -280,7 +286,7 @@ int main(int argc, char** argv) {
             SDL_ShowCursor();
         }
 
-        Mouse mouse(true,gWindow,G_WIDTH,G_HEIGHT);
+        Mouse mouse(automated,gWindow,G_WIDTH,G_HEIGHT);
 
         //The event data
         SDL_Event e;
@@ -317,6 +323,9 @@ int main(int argc, char** argv) {
                         } else {
                             SDL_ShowCursor();
                         }
+                    } else if (e.key.key == SDLK_A) {
+                        automated = automated == false ? true: false;
+                        mouse.automated = automated;
                     }
                 } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
                     int width = e.window.data1;
@@ -332,6 +341,13 @@ int main(int argc, char** argv) {
             }
             
             currentTime = SDL_GetTicks();
+            if (currentTime/1000 != lastTime/1000) {
+                if (fps_meas.size() >= FPS_BUFFER_LENGTH) {
+                    fps_meas.pop_front();
+                }
+                fps_meas.push_back(1000.0*frames/(float)(1000+currentTime%1000));
+                frames = 0;
+            }
             dt = (currentTime - lastTime)/1000.0;
             lastTime = currentTime;
 
@@ -342,8 +358,17 @@ int main(int argc, char** argv) {
             }
 
             //Update the surface
+            frames++;
+            float avg = 0;
+            for (float f: fps_meas) {
+                avg += f;
+            }
+            avg /= fps_meas.size();
             render();
             SDL_GL_SwapWindow(gWindow);
+            char new_title[256];
+            sprintf(new_title,"Fluid Sim - %.2f FPS",avg);
+            SDL_SetWindowTitle(gWindow,new_title);
         }
     }
     printf("end\n");

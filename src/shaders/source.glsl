@@ -33,7 +33,7 @@ void addSourceFromMouse(ivec2 id) {
     if (component != -1) {
         setComponent(outv,component,dt*source_strength);
     } else {
-        outv = vec4(dt*source_strength*(mouse_vel/dt)*0.4,0.0,0.0);
+        outv = vec4(dt*source_strength*(mouse_vel/(dt+0.00001))*0.4,0.0,0.0);
     }
     imageStore(outputField,id,current + outv);
 }
@@ -56,7 +56,7 @@ void addForceFromMouse(ivec2 id) {
     vec4 outv = vec4(0.0,0.0,0.0,0.0);
     vec4 current = texelFetch(inputField,id,0);
     if (component == -1) { // this is only true when the velocity field calls this
-        outv = vec4(dt*source_strength*(mouse_vel/dt)*0.4,0.0,0.0);
+        outv = vec4(dt*source_strength*(mouse_vel/(dt+0.00001))*0.4,0.0,0.0);
     }
     imageStore(outputField,id,current + outv);
 }
