@@ -1,7 +1,7 @@
 #include "shader.hpp"
 #include <string>
-#include <gl/glew.h>
-#include <gl/GLU.h>
+#include <GL/glew.h>
+#include <GL/glu.h>
 #include <fstream>
 #include <algorithm>
 #include <filesystem>
@@ -102,6 +102,7 @@ bool Shader::init(std::string filename) {
     file.read(buffer, sz);
     file.close();
     buffer[sz] = '\0';
+
     id = glCreateShader(type);
     glShaderSource(id, 1, &buffer, &sz);
     glCompileShader(id);

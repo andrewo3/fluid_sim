@@ -1,20 +1,21 @@
 #ifndef MOUSE_HPP
 #define MOUSE_HPP
 
-#include <SDL3/SDL.h>
+#include <chrono>
 
 #define LENGTH_MIN 500
 #define LENGTH_MAX 3000
 
+long GetTicks();
+
+extern std::chrono::steady_clock::time_point start;
+
 class Mouse {
     public:
-        Mouse(bool autom, SDL_Window* win, int gw, int gh);
-        SDL_Window* window;
-        bool automated;
+        Mouse(int gw, int gh);
         void getPos(int* wr);
         void getVel(float* wr);
         void getButtons(int* wr);
-        void resize();
         void update();
         float interp(int start, int end, float t);
 

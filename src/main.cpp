@@ -1,20 +1,21 @@
 #include <stdio.h>
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
-#include <gl/glew.h>
-#include <SDL3/SDL_opengl.h>
-#include <gl/GLU.h>
+#include <iostream>
+#include <unistd.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GL/glew.h>
+#include <GL/glu.h>
 #include <fstream>
 #include "shader.hpp"
 #include "sim.hpp"
-#include <windows.h>
+#include "network.hpp"
 #include <cstdlib>
 #include <queue>
 
 #define FPS_BUFFER_LENGTH 3
 
 
-void APIENTRY debugCallback(
+void debugCallback(
 GLenum source, GLenum type, GLuint id,
     GLenum severity, GLsizei length,
     const GLchar* message, const void* userParam)
@@ -26,18 +27,6 @@ GLenum source, GLenum type, GLuint id,
 //Screen dimension constants
 constexpr int kScreenWidth = 640;
 constexpr int kScreenHeight = 480;
-
-/* Global Variables */
-//The window we'll be rendering to
-SDL_Window* gWindow = nullptr;
-    
-//The surface contained by the window
-SDL_Surface* gScreenSurface = nullptr;
-
-//The image we will load and show on the screen
-SDL_Surface* gHelloWorld = nullptr;
-
-SDL_GLContext gContext;
 
 //Graphics program
 ShaderProgram gProgram;
@@ -54,6 +43,7 @@ Shader fragmentShader(GL_FRAGMENT_SHADER);
 //Fluid sim object
 const int G_WIDTH = 256;
 const int G_HEIGHT = 256;
+uint8_t pixel_data[G_WIDTH * G_HEIGHT * 3];
 Fluid* fSim;
 
 //timing
@@ -62,6 +52,11 @@ unsigned long lastTime = 0;
 float dt = 0.0;
 long frames = 0;
 std::deque<float> fps_meas;
+
+//EGL Context
+EGLDisplay display;
+EGLContext context;
+EGLSurface surface;
 
 
 //options
@@ -153,114 +148,78 @@ bool initGL() {
 /* Function Implementations */
 bool init() {
     //Initialization flag
-    bool success = true;
-
     srand(time(nullptr)); 
 
-    //Initialize SDL
-    if( SDL_Init( SDL_INIT_VIDEO ) == false) {
-        SDL_Log( "SDL could not initialize! SDL error: %s\n", SDL_GetError() );
-        success = false;
-    } else {
-        //Create window
-        if(gWindow = SDL_CreateWindow( "Fluid Sim", kScreenWidth, kScreenHeight, SDL_WINDOW_OPENGL); gWindow == nullptr)
-        {
-            SDL_Log("Window could not be created! SDL error: %s\n", SDL_GetError());
-            success = false;
-        }
-        else
-        {
-            //Get window surface
-            gScreenSurface = SDL_GetWindowSurface(gWindow);
-        }
-
-        //Use OpenGL 4.3 core
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-        //Create context
-        gContext = SDL_GL_CreateContext(gWindow);
-        if(gContext == NULL) {
-            printf( "OpenGL context could not be created! SDL Error: %s\n", SDL_GetError() );
-            success = false;
-        }
-        else {
-            //Initialize GLEW
-            glewExperimental = GL_TRUE; 
-            GLenum glewError = glewInit();
-            if(glewError != GLEW_OK) {
-                printf("Error initializing GLEW! %s\n", glewGetErrorString(glewError));
-            }
-
-            //Use Vsync
-            if(!SDL_GL_SetSwapInterval(1)) {
-                printf( "Warning: Unable to set VSync! SDL Error: %s\n", SDL_GetError());
-            }
-
-            //Initialize OpenGL
-            if(!initGL()) {
-                printf("Unable to initialize OpenGL!\n");
-                success = false;
-            }
-            SDL_SetWindowResizable(gWindow,true);
-        }
+    // TODO: Create OpenGL Context with EGL
+    display = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, NULL);
+    if (display == EGL_NO_DISPLAY) {
+        fprintf(stderr, "Failed to get EGL display\n");
+        return false;
     }
-    return success;
-}
 
-void render()
-{
-    //Clear color buffer
-    glClear( GL_COLOR_BUFFER_BIT );
-    
-    //Render quad
-    if( gRenderQuad )
-    {
-        //Bind program
-        glUseProgram(gProgram.id);
-
-        //Enable VAO
-        glBindVertexArray(gVAO);
-
-        GLuint texId = velocity_field ? fSim->V2ID : fSim->mixedOut;
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D,texId);
-
-        //Enable vertex position
-        glEnableVertexAttribArray(gVertexPos2DLocation);
-
-        //Set vertex data
-        glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)(sizeof(GLfloat)*2));
-        glEnableVertexAttribArray(1);
-        //Set index data and render
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
-        glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL );
-
-        //Disable vertex position
-        glDisableVertexAttribArray( gVertexPos2DLocation );
-
-        //Unbind program
-        glUseProgram( NULL );
+    if (!eglInitialize(display, NULL, NULL)) {
+        fprintf(stderr, "Failed to initialize EGL\n");
+        return false;
     }
+
+    EGLConfig config;
+    EGLint numConfigs;
+
+    EGLint configAttribs[] = {
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, // request desktop OpenGL
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_ALPHA_SIZE, 8,
+        EGL_NONE
+    };
+    eglChooseConfig(display, configAttribs, &config, 1, &numConfigs);
+    if (numConfigs < 1) {
+        fprintf(stderr, "No suitable EGL configs found\n");
+        return false;
+    }
+
+    surface = eglCreatePbufferSurface(display, config, (EGLint[]){
+        EGL_WIDTH, G_WIDTH,
+        EGL_HEIGHT, G_HEIGHT,
+        EGL_NONE
+    });
+
+    if (surface == EGL_NO_SURFACE) {
+        fprintf(stderr, "Failed to create EGL surface\n");
+        return false;
+    }
+
+    eglBindAPI(EGL_OPENGL_API);
+
+    EGLint contextAttribs[] = {
+        EGL_CONTEXT_MAJOR_VERSION, 4,
+        EGL_CONTEXT_MINOR_VERSION, 3,
+        EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+        EGL_NONE
+    };
+
+    context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
+    eglMakeCurrent(display, surface, surface, context);
+
+    if (context == EGL_NO_CONTEXT) {
+        fprintf(stderr, "Failed to create EGL context\n");
+        return false;
+    }
+
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        fprintf(stderr, "GLEW initialization failed: %s\n", glewGetErrorString(err));
+        return false;
+    }
+
+    return true;
 }
 
 void close()
 {
-    //Clean up surface
-    SDL_DestroySurface(gHelloWorld);
-    gHelloWorld = nullptr;
-    
-    //Destroy window
-    SDL_DestroyWindow(gWindow);
-    gWindow = nullptr;
-    gScreenSurface = nullptr;
-
-    //Quit SDL subsystems
-    SDL_Quit();
+    //Destroy OpenGL Context
 }
 
 inline int positive_modulo(int i, int n) {
@@ -272,7 +231,7 @@ int main(int argc, char** argv) {
     int exitCode = 0;
     //Initialize
     if(init() == false) {
-        SDL_Log( "Unable to initialize program!\n" );
+        printf( "Unable to initialize program!\n" );
         exitCode = 1;
     }
     else
@@ -280,67 +239,21 @@ int main(int argc, char** argv) {
         //The quit flag
         bool quit = false;
         fSim = new Fluid(G_WIDTH,G_HEIGHT,0.00001,0.00001);
-        if (!show_cursor) {
-            SDL_HideCursor();
-        } else {
-            SDL_ShowCursor();
-        }
-
-        Mouse mouse(automated,gWindow,G_WIDTH,G_HEIGHT);
-
+        Connection conn = Connection("192.168.193.25",65432);
+        conn.connect_();
+        
+        Mouse mouse(G_WIDTH,G_HEIGHT);
+        
         //The event data
-        SDL_Event e;
-        SDL_zero(e);
         //The main loop
         while (quit == false) {
-            //Get event data
-            while(SDL_PollEvent(&e) == true) {
-                //If event is quit type
-                if(e.type == SDL_EVENT_QUIT) {
-                    //End the main loop
-                    printf("Ending...\n");
-                    quit = true;
-                } else if (e.type == SDL_EVENT_MOUSE_WHEEL) {
-                    fSim->mouse_density += e.wheel.integer_y;
-                    fSim->mouse_density = positive_modulo(fSim->mouse_density,fSim->densities);
-                    //printf("Mouse density: %i\n",fSim->mouse_density);
-                } else if (e.type == SDL_EVENT_KEY_DOWN) {
-                    if (e.key.key == SDLK_F && framebyframe) {
-                        fSim->simStep(&mouse,0.016);
-                    } else if (e.key.key == SDLK_T) {
-                        framebyframe = framebyframe == false ? true : false;
-                    } else if (e.key.key == SDLK_V) {
-                        velocity_field = velocity_field == false ? true : false;
-                    } else if (e.key.key == SDLK_R) {
-                        rainbow = rainbow == false ? true : false;
-                    } else if (e.key.key == SDLK_F11) {
-                        fullscreen = fullscreen == false ? true : false;
-                        SDL_SetWindowFullscreen(gWindow,fullscreen);
-                    } else if (e.key.key == SDLK_C) {
-                        show_cursor = show_cursor == false ? true : false;
-                        if (!show_cursor) {
-                            SDL_HideCursor();
-                        } else {
-                            SDL_ShowCursor();
-                        }
-                    } else if (e.key.key == SDLK_A) {
-                        automated = automated == false ? true: false;
-                        mouse.automated = automated;
-                    }
-                } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
-                    int width = e.window.data1;
-                    int height = e.window.data2;
-                    glViewport(0, 0, width, height); // resize OpenGL viewport
-                    mouse.resize();
-                }
-            }
 
             if (rainbow) {
                 fSim->mouse_density = currentTime / 200;
                 fSim->mouse_density %= fSim->densities;
             }
             
-            currentTime = SDL_GetTicks();
+            currentTime = GetTicks();
             if (currentTime/1000 != lastTime/1000) {
                 if (fps_meas.size() >= FPS_BUFFER_LENGTH) {
                     fps_meas.pop_front();
@@ -364,11 +277,11 @@ int main(int argc, char** argv) {
                 avg += f;
             }
             avg /= fps_meas.size();
-            render();
-            SDL_GL_SwapWindow(gWindow);
-            char new_title[256];
-            sprintf(new_title,"Fluid Sim - %.2f FPS",avg);
-            SDL_SetWindowTitle(gWindow,new_title);
+
+            glBindTexture(GL_TEXTURE_2D, fSim->mixedOut);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel_data);
+            conn.sendFrame(pixel_data, G_WIDTH*G_HEIGHT*3);
+            sleep(1/60.0);
         }
     }
     printf("end\n");

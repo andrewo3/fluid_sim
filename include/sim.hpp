@@ -2,10 +2,9 @@
 #define SIM_HPP
 
 #include "shader.hpp"
-#include <gl/glew.h>
-#include <gl/GLU.h>
+#include <GL/glew.h>
+#include <GL/glu.h>
 #include <vector>
-#include <SDL3/SDL.h>
 #include "mouse.hpp"
 
 #define MAX_DENSITIES 8 //should ideally be a multiple of 4 to make RGBA textures out of

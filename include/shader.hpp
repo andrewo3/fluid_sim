@@ -2,7 +2,7 @@
 #define SHADER_HPP
 
 #include <string>
-#include <gl/glew.h>
+#include <GL/glew.h>
 #include <vector>
 
 class Shader {

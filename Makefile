@@ -4,7 +4,7 @@
 TARGET := main
 
 CXX := g++
-CXXFLAGS := -Wall -Wextra -std=c++17 -mconsole
+CXXFLAGS := -Wall -Wextra -std=c++17
 
 # Directories (relative to Makefile)
 SRC_DIR := src
@@ -12,10 +12,10 @@ BUILD_DIR := build
 BIN_DIR := bin
 INCLUDE_DIRS := include
 LIB_DIRS := lib
-LIBS := SDL3 glew32 opengl32 glu32
+LIBS := GLEW GL GLU EGL lz4
 
 SHADERS_SRC := $(SRC_DIR)/shaders
-SHADERS_DST := $(BIN_DIR)/shaders
+SHADERS_DST := $(BIN_DIR)
 
 # ------------------------
 # OS Detection
@@ -33,7 +33,7 @@ else
     MKDIR = mkdir -p $(1)
     RM = rm -f
     RMDIR = rm -rf
-    SRCS := $(wildcard $(SRC_DIR)/**/*.cpp)
+    SRCS := $(shell find $(SRC_DIR) -name '*.cpp')
 endif
 
 ifeq ($(OS),Windows_NT)

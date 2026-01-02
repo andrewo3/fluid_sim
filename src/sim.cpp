@@ -1,11 +1,8 @@
 #include "sim.hpp"
-#include <gl/glew.h>
-#include <gl/GLU.h>
+#include <GL/glew.h>
+#include <GL/glu.h>
 #include <stdio.h>
 #include <string>
-#include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_timer.h>
-#include "mouse.hpp"
 #define _USE_MATH_DEFINES
 #include <math.h>
 
