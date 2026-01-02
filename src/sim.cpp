@@ -6,6 +6,8 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_timer.h>
 #include "mouse.hpp"
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 
 
@@ -218,6 +220,9 @@ void Fluid::mixDensities() {
         GLint initLoc = glGetUniformLocation(mixProgram.id, "init");
         glUniform1i(initLoc, i==0);
 
+        GLint hueShiftLoc = glGetUniformLocation(mixProgram.id,"hue_shift");
+        glUniform1f(hueShiftLoc,hue_shift);
+
         //input textures setup
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D,dens_out[i]);
@@ -348,8 +353,10 @@ void Fluid::simStep(Mouse* mouse, float dt_) {
     dt = dt_;
     float SRC_STRENGTH = 300.0;
     float BRUSH_SIZE = 1;
-    //get mouse pos, vel, and buttons
-
+    hue_shift += 2*M_PI*dt_/3600;
+    if (hue_shift > 2*M_PI) {
+        hue_shift -= 2*M_PI;
+    }
     int mouse_pos[2];
     float mouse_vel[2];
     int mouse_buttons[3];

@@ -85,6 +85,9 @@ class Fluid {
         int mouse_density = 0;
         
         color_t colors[MAX_DENSITIES];
+
+        //visual addition
+        float hue_shift = 0.0;
 };
 
 #endif

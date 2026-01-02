@@ -4,7 +4,7 @@
 TARGET := main
 
 CXX := g++
-CXXFLAGS := -Wall -Wextra -std=c++17 -mconsole
+CXXFLAGS := -Wall -Wextra -std=c++17 -mwindows
 
 # Directories (relative to Makefile)
 SRC_DIR := src
