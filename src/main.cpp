@@ -281,7 +281,7 @@ int main(int argc, char** argv) {
             glBindTexture(GL_TEXTURE_2D, fSim->mixedOut);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel_data);
             conn.sendFrame(pixel_data, G_WIDTH*G_HEIGHT*3);
-            sleep(1/60.0);
+            usleep(1000000/60);
         }
     }
     printf("end\n");
