@@ -12,8 +12,7 @@
 #include <cstdlib>
 #include <queue>
 
-#define FPS_BUFFER_LENGTH 3
-
+#define FPS 24
 
 void debugCallback(
 GLenum source, GLenum type, GLuint id,
@@ -58,6 +57,10 @@ EGLDisplay display;
 EGLContext context;
 EGLSurface surface;
 
+//PBO
+#define NUM_PBOS 3
+GLuint pbo[NUM_PBOS];
+static int pbo_index = 0;
 
 //options
 bool framebyframe = false;
@@ -68,81 +71,18 @@ bool show_cursor = false;
 bool automated = true;
 
 bool initGL() {
-    glEnable(GL_DEBUG_OUTPUT);
+    //glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(debugCallback, NULL);
-    //Success flag
-    bool success = true;
-    
-    //Generate program
-    gProgram.init();
-    //initialize shaders
-    if (!vertexShader.init("shaders/vertex.glsl")) {
-        printf("Unable to compile vertex shader %d!\n", vertexShader.id);
-        printShaderLog(vertexShader.id);
-        return false;
+
+    glGenBuffers(NUM_PBOS, pbo);
+    size_t size = G_WIDTH * G_HEIGHT * 3;
+    for (int i = 0; i < NUM_PBOS; i++) {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo[i]);
+        glBufferData(GL_PIXEL_PACK_BUFFER, size, nullptr, GL_STREAM_READ);
+        glBufferStorage(GL_PIXEL_PACK_BUFFER, size, nullptr, GL_MAP_READ_BIT | GL_DYNAMIC_STORAGE_BIT);
     }
-
-    if (!fragmentShader.init("shaders/frag.glsl")) {
-        printf("Unable to compile fragment shader %d!\n", fragmentShader.id);
-        printShaderLog(fragmentShader.id);
-        return false;
-    }
-    //Attach vertex shader to program
-    gProgram.attachShader(&vertexShader);
-
-    //Attach fragment shader to program
-    gProgram.attachShader(&fragmentShader);
-    //Link program
-    if(!gProgram.link()) {
-        printf("Error linking program %d!\n", gProgram.id);
-        printProgramLog(gProgram.id);
-        return false;
-    }
-    //Get vertex attribute location
-    gVertexPos2DLocation = glGetAttribLocation( gProgram.id, "LVertexPos2D" );
-    if( gVertexPos2DLocation == -1 )
-    {
-        printf( "LVertexPos2D is not a valid glsl program variable!\n" );
-        return false;
-    }else
-    {
-        //Initialize clear color
-        glClearColor( 0.f, 0.f, 0.f, 1.f );
-
-        //VBO data
-        GLfloat vertexData[] =
-        {
-            -1.0f, -1.0f,0.0f,0.0f,
-                1.0f, -1.0f,1.0f,0.0f,
-                1.0f,  1.0f,1.0f,1.0f,
-            -1.0f,  1.0f, 0.0f, 1.0f
-        };
-
-        //IBO data
-        GLuint indexData[] = { 0, 1, 2, 2, 3, 0 };
-
-        //create VAO
-        glGenVertexArrays(1, &gVAO);
-        glBindVertexArray(gVAO);
-
-        //Create VBO
-        glGenBuffers( 1, &gVBO );
-        glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-        glBufferData( GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW );
-
-        //Create IBO
-        glGenBuffers( 1, &gIBO );
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
-        glBufferData( GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLuint), indexData, GL_STATIC_DRAW );
-
-        //vertex attributes
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)0);
-        glEnableVertexAttribArray(0);
-        //tex coords
-        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(GLfloat)*4,(void*)(sizeof(GLfloat)*2));
-        glEnableVertexAttribArray(1);
-    }
-    return success;
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    return true;
 }
 
 /* Function Implementations */
@@ -236,6 +176,7 @@ int main(int argc, char** argv) {
     }
     else
     {
+        initGL();
         //The quit flag
         bool quit = false;
         fSim = new Fluid(G_WIDTH,G_HEIGHT,0.00001,0.00001);
@@ -254,34 +195,42 @@ int main(int argc, char** argv) {
             }
             
             currentTime = GetTicks();
-            if (currentTime/1000 != lastTime/1000) {
-                if (fps_meas.size() >= FPS_BUFFER_LENGTH) {
-                    fps_meas.pop_front();
-                }
-                fps_meas.push_back(1000.0*frames/(float)(1000+currentTime%1000));
-                frames = 0;
-            }
-            dt = (currentTime - lastTime)/1000.0;
+            dt = 1.0/FPS;
+            float observed_dt = (currentTime - lastTime) / 1000.0f;
+            printf("FPS: %.2f\n", 1.0f / observed_dt);
             lastTime = currentTime;
+            
 
             //run sim frame
             mouse.update();
             if (!framebyframe) {
                 fSim->simStep(&mouse,dt);
             }
+            //send frame
+            int next = (pbo_index + 1) % NUM_PBOS;
+            int read = (pbo_index + NUM_PBOS - 1) % NUM_PBOS;
 
-            //Update the surface
-            frames++;
-            float avg = 0;
-            for (float f: fps_meas) {
-                avg += f;
-            }
-            avg /= fps_meas.size();
-
+            // 1️⃣ Issue async read into PBO
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo[pbo_index]);
             glBindTexture(GL_TEXTURE_2D, fSim->mixedOut);
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel_data);
-            conn.sendFrame(pixel_data, G_WIDTH*G_HEIGHT*3);
-            usleep(1000000/60);
+            glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+            
+            // 2️⃣ Map *previous* PBO (likely ready)
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo[read]);
+            void* ptr = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            //printf("pointer value: %p\n",ptr);
+            if (ptr) {
+                conn.sendFrame((uint8_t*)ptr, G_WIDTH * G_HEIGHT * 3);
+                glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+            }
+
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+            pbo_index = next;
+            //glBindTexture(GL_TEXTURE_2D, fSim->mixedOut);
+            //glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel_data);
+            //conn.sendFrame(pixel_data, G_WIDTH*G_HEIGHT*3);
+            //usleep(1000000/FPS);
         }
     }
     printf("end\n");
