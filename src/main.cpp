@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
             currentTime = GetTicks();
             dt = 1.0/FPS;
             float observed_dt = (currentTime - lastTime) / 1000.0f;
-            printf("FPS: %.2f\n", 1.0f / observed_dt);
+            //printf("FPS: %.2f\n", 1.0f / observed_dt);
             lastTime = currentTime;
             
 
@@ -227,10 +227,6 @@ int main(int argc, char** argv) {
 
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
             pbo_index = next;
-            //glBindTexture(GL_TEXTURE_2D, fSim->mixedOut);
-            //glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel_data);
-            //conn.sendFrame(pixel_data, G_WIDTH*G_HEIGHT*3);
-            //usleep(1000000/FPS);
         }
     }
     printf("end\n");
