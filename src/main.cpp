@@ -204,7 +204,10 @@ int main(int argc, char** argv) {
             //run sim frame
             mouse.update();
             if (!framebyframe) {
-                fSim->simStep(&mouse,dt);
+                int times = 1;
+                for (int i = 0; i < times; i++) {
+                    fSim->simStep(&mouse,dt/times);
+                }
             }
             //send frame
             int next = (pbo_index + 1) % NUM_PBOS;
